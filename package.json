@@ -7,7 +7,9 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "check": "astro check"
+    "check": "astro check",
+    "hooks:install": "git config core.hooksPath scripts && chmod +x scripts/pre-commit && echo \"leak guard installed (core.hooksPath=scripts)\"",
+    "prepare": "git config core.hooksPath scripts 2>/dev/null || true"
   },
   "dependencies": {
     "astro": "^5.6.1",

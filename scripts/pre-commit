@@ -1,0 +1,191 @@
+#!/bin/sh
+#
+# pre-commit leak guard for robbedewin.be (PUBLIC repo).
+#
+# The content of this site is derived by hand from private sources holding real
+# household finances, third-party personal data and a live API key. A push to a
+# public repo is irreversible (history, forks, crawlers), so this blocks the
+# COMMIT rather than the deploy.
+#
+# It inspects STAGED content only (git show :file), and only files that are
+# actually staged -- never the working tree, never the rest of the repo.
+#
+# Install:  npm run hooks:install   (or: git config core.hooksPath scripts)
+#
+# NOTE: core.hooksPath makes git treat EVERY file in scripts/ as a hook. Only
+# hook-named files belong here; put helper scripts in a subdirectory.
+#
+# Escape hatches, in order of preference:
+#   1. a `leak-guard:allow` marker on the individual line (greppable, reviewable)
+#   2. git commit --no-verify  -- deliberate, after reading each hit
+#
+# See README.md for the full rationale.
+
+set -u
+
+RED=''; YEL=''; BLD=''; RST=''
+if [ -t 2 ]; then
+  RED=$(printf '\033[31m'); YEL=$(printf '\033[33m')
+  BLD=$(printf '\033[1m');  RST=$(printf '\033[0m')
+fi
+
+Q="'"
+MARKER='leak-guard:allow'
+
+# --- Rules ------------------------------------------------------------------
+#
+# Every pattern here was checked empirically against the committed 8-12 MB
+# single-line HTML reports, which embed minified JS and base64 blobs. Word
+# boundaries are load-bearing: bare `hanne` matches inside "channel", bare      leak-guard:allow
+# `secret` matches FontAwesome's `fa-user-secret`, and `apikey` matches
+# `dataApiKeydownHandler`. Do not relax them without re-checking those five files.
+
+# Tier A -- fatal in EVERY staged file, allowlisted reports included.
+R_NAMES='\b(hanne|jakob|moeke|testklant)\b'                       # leak-guard:allow
+R_NAMES2='\b(sarah|mich|thomas)\b'                                # leak-guard:allow
+R_BROKER='\b(medirect|degiro)\b|21320331'                         # leak-guard:allow
+R_PATHS='/home/robbe|/mnt/c/[Uu]sers'                             # leak-guard:allow
+R_INTERVALS='INTERVALS_API_KEY'                                   # leak-guard:allow
+# Loose first stage; stage two below requires the value to contain a digit,
+# which is what kills minified hits like `password=encodeURIComponent`.
+R_SECRET="(api[_-]?key|apikey|secret|token|access[_-]?key|client[_-]?secret|password|passwd|bearer)[\"$Q]?[[:space:]]*[:=][[:space:]]*[\"$Q]?[A-Za-z0-9_/+=-]{16,}"  # leak-guard:allow
+SECRET_DIGIT="[:=][[:space:]]*[\"$Q]?[A-Za-z0-9_/+=-]*[0-9]"
+
+TIER_A="$R_NAMES|$R_NAMES2|$R_BROKER|$R_PATHS|$R_INTERVALS|$R_SECRET"
+
+# Tier B -- fatal everywhere EXCEPT the allowlisted reports, which legitimately
+# publish euro amounts (synthetic household + public-data research).
+R_EURO='(€[[:space:]]?[0-9]{1,3}([.,][0-9]{3})+([.,][0-9]{1,2})?|€[[:space:]]?[0-9]{3,}([.,][0-9]{1,2})?|[0-9]{1,3}([.,][0-9]{3})+([.,][0-9]{1,2})?[[:space:]]?€|[0-9]{3,}([.,][0-9]{1,2})?[[:space:]]?€|\bEUR[[:space:]][0-9]{3,})'
+
+TIER_B="$R_EURO"
+
+# Allowlisted paths: already committed, legitimately full of euro amounts and
+# public broker product names. Allowlisting lifts Tier B ONLY -- names, brokers,
+# secrets and local paths stay fatal, so a report regenerated from a real
+# household is still caught.
+is_allowlisted() {
+  case "$1" in
+    public/reports/voorbeeld-plan.html) return 0 ;;
+    public/research/*.html)             return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+explain() {
+  m=$1
+  if   printf '%s' "$m" | grep -qiE "$R_INTERVALS"; then echo "live intervals.icu API key from the bike vault"
+  elif printf '%s' "$m" | grep -qiE "$R_SECRET";    then echo "credential assigned a long, digit-bearing token value"
+  elif printf '%s' "$m" | grep -qiE "$R_NAMES";     then echo "third-party first name from the private financial_report households"
+  elif printf '%s' "$m" | grep -qiE "$R_NAMES2";    then echo "third-party first name from the private financial_report households"
+  elif printf '%s' "$m" | grep -qiE "$R_BROKER";    then echo "broker or account identifier from a private broker export"
+  elif printf '%s' "$m" | grep -qE  "$R_PATHS";     then echo "absolute local path -- reveals this machine's layout"
+  elif printf '%s' "$m" | grep -qE  "$R_EURO";      then echo "euro amount outside the allowlisted synthetic/public reports"
+  else echo "matched a blocked pattern"
+  fi
+}
+
+MAXHITS=8
+HITFILE=$(mktemp) || exit 1
+BLOB=$(mktemp)    || exit 1
+trap 'rm -f "$HITFILE" "$BLOB"' EXIT INT TERM
+
+flag() {  # $1 = headline, $2 = detail lines already formatted
+  echo x >> "$HITFILE"
+}
+
+scan_blob() {
+  # $1 = path, $2 = regex.
+  # The blob is written out once: decompressing the 8-12 MB reports is the
+  # dominant cost, and having it on disk lets us check the marker per line.
+  path=$1; re=$2
+  git show ":$path" > "$BLOB" 2>/dev/null || return 0
+
+  # grep -n -b -o gives LINE:BYTE:MATCH
+  hits=$(LC_ALL=C grep -a -n -b -o -i -E "$re" "$BLOB" 2>/dev/null | head -n 60)
+  [ -z "$hits" ] && return 0
+
+  shown=0
+  printf '%s\n' "$hits" | while IFS= read -r hit; do
+    [ -z "$hit" ] && continue
+    line=${hit%%:*}; rest=${hit#*:}
+    byte=${rest%%:*}; match=${rest#*:}
+
+    # Stage two of the credential rule: no digit in the value, not a token.
+    if printf '%s' "$match" | grep -qiE "$R_SECRET"; then
+      printf '%s' "$match" | grep -qE "$SECRET_DIGIT" || continue
+    fi
+
+    # Per-line opt-out. Greppable on purpose: `grep -rn leak-guard:allow`
+    # lists every exemption in the repo.
+    sed -n "${line}p" "$BLOB" 2>/dev/null | grep -qF "$MARKER" && continue
+
+    shown=$((shown + 1))
+    if [ "$shown" -gt "$MAXHITS" ]; then
+      printf '    ... further matches in this file suppressed\n\n' >&2
+      break
+    fi
+
+    short=$(printf '%s' "$match" | cut -c1-70)
+    [ "${#match}" -gt 70 ] && short="$short..."
+    printf '%s%s BLOCKED%s  %s  (line %s, byte offset %s)\n' "$RED" "$BLD" "$RST" "$path" "$line" "$byte" >&2
+    printf '    match:  %s\n'   "$short" >&2
+    printf '    why:    %s\n\n' "$(explain "$match")" >&2
+    flag
+  done
+  return 0
+}
+
+report_filename() {  # $1 = path, $2 = why
+  printf '%s%s BLOCKED FILENAME%s  %s\n' "$RED" "$BLD" "$RST" "$1" >&2
+  printf '    why:    %s\n\n' "$2" >&2
+  echo x >> "$HITFILE"
+}
+
+# --- Main -------------------------------------------------------------------
+
+# -z avoids git's path quoting; tr gives one path per line.
+staged=$(git diff --cached --name-only --diff-filter=ACMR -z | tr '\0' '\n')
+[ -z "$staged" ] && exit 0
+
+printf '%s\n' "$staged" | while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  base=${f##*/}
+
+  # --- filename rules: these must never be added at all ---
+  case "$base" in
+    *.env|.env|.env.*)
+      report_filename "$f" "environment file -- carries live credentials"; continue ;;
+    secrets*)
+      report_filename "$f" "secrets file -- e.g. the bike vault's secrets.env"; continue ;;
+    rides.csv)
+      report_filename "$f" "personal ride log from the bike vault"; continue ;;
+    *.sqlite|*.sqlite3|*.db)
+      report_filename "$f" "database file -- may embed private records wholesale"; continue ;;
+    *.pem|*.key|id_rsa*)
+      report_filename "$f" "private key material"; continue ;;
+  esac
+
+  case "$f" in
+    clients/voorbeeld/*|*/clients/voorbeeld/*) : ;;   # synthetic demo household
+    clients/*|*/clients/*)
+      report_filename "$f" "path under clients/ -- a real household, not the voorbeeld demo"; continue ;;
+  esac
+
+  # --- content rules, one pass over the blob ---
+  if is_allowlisted "$f"; then scan_blob "$f" "$TIER_A"
+  else                         scan_blob "$f" "$TIER_A|$TIER_B"
+  fi
+done
+
+if [ -s "$HITFILE" ]; then
+  n=$(wc -l < "$HITFILE" | tr -d ' ')
+  printf '%s%spre-commit leak guard: %s problem(s) -- commit refused.%s\n' "$RED" "$BLD" "$n" "$RST" >&2
+  printf '%sThis repo is public; a push cannot be taken back.%s\n' "$YEL" "$RST" >&2
+  printf 'Scrub or unstage the content above, then commit again.\n' >&2
+  printf 'A line that is genuinely fine can carry a %s%s%s marker.\n' "$BLD" "$MARKER" "$RST" >&2
+  printf 'Last resort: %sgit commit --no-verify%s -- a deliberate decision,\n' "$BLD" "$RST" >&2
+  printf 'made after reading every hit above. Rules: scripts/pre-commit\n' >&2
+  exit 1
+fi
+
+exit 0
