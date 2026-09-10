@@ -1,0 +1,23 @@
+---
+const { pathname } = Astro.url;
+const links = [
+  { href: '/', label: 'about' },
+  { href: '/projects', label: 'projects' },
+  { href: '/cv', label: 'cv' },
+];
+const isCurrent = (href: string) =>
+  href === '/' ? pathname === '/' : pathname.startsWith(href);
+---
+
+<header class="site-head">
+  <div class="shell site-head__inner">
+    <a class="site-head__name" href="/">Robbe De Win</a>
+    <nav class="site-nav" aria-label="Main">
+      {links.map((l) => (
+        <a href={l.href} aria-current={isCurrent(l.href) ? 'page' : undefined}>
+          {l.label}
+        </a>
+      ))}
+    </nav>
+  </div>
+</header>

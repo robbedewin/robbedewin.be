@@ -1,0 +1,31 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import ProjectCard from '../../components/ProjectCard.astro';
+
+const projects = (await getCollection('projects')).sort(
+  (a, b) => a.data.order - b.data.order,
+);
+---
+
+<Base
+  title="Projects"
+  description="Genome-scale metabolic modelling, sequencing pipelines, a Belgian financial planning engine, and a local-first bike garage."
+>
+  <h1>Projects</h1>
+  <p class="page-head__summary">
+    Two master's theses and three things I built because I wanted them to exist.
+  </p>
+
+  <ul class="card-list" style="margin-top:2rem">
+    {projects.map((p) => (
+      <ProjectCard
+        href={`/projects/${p.id}`}
+        level={2}
+        title={p.data.title}
+        summary={p.data.summary}
+        tags={p.data.tags}
+      />
+    ))}
+  </ul>
+</Base>

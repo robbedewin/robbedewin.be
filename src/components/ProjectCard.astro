@@ -1,0 +1,21 @@
+---
+interface Props {
+  href: string;
+  title: string;
+  summary: string;
+  tags?: string[];
+  level?: 2 | 3;
+}
+const { href, title, summary, tags = [], level = 3 } = Astro.props;
+const Heading = `h${level}` as 'h2' | 'h3';
+---
+
+<li class="card">
+  <Heading class="card__title"><a href={href}>{title}</a></Heading>
+  <p class="card__summary">{summary}</p>
+  {tags.length > 0 && (
+    <ul class="tags">
+      {tags.map((t) => <li class="tag">{t}</li>)}
+    </ul>
+  )}
+</li>

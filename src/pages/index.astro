@@ -1,0 +1,63 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import SocialLinks from '../components/SocialLinks.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+
+const featured = (await getCollection('projects'))
+  .filter((p) => p.data.featured)
+  .sort((a, b) => a.data.order - b.data.order);
+---
+
+<Base
+  title="Robbe De Win"
+  description="Bioinformatician in Leuven, Belgium. Genome-scale metabolic modelling, sequencing pipelines, and the tooling around them."
+>
+  <h1>Robbe De Win</h1>
+
+  <p class="lede">
+    I build computational pipelines and the tooling that keeps them honest. I
+    finished a Master of Bioinformatics at KU Leuven in 2026, after a Master of
+    Biomedical Sciences — two theses, one on genome-scale metabolic modelling
+    across roughly 1,500 bacterial genomes, one on allele-specific expression in
+    treatment-resistant leukemia.
+  </p>
+
+  <p>
+    What draws me is the point where biology stops being a wet-lab question and
+    becomes an engineering one: a thousand genomes is not a bigger version of one
+    genome, it is a different problem. Most of what I have learned came from
+    getting a pipeline of that size to run reliably, validating its output against
+    experimental data, and being able to say afterwards exactly how a number was
+    produced.
+  </p>
+
+  <p>
+    The same habit shows up outside biology. I built a financial planning engine
+    for Belgian households because the generic advice stops working exactly where
+    the local tax rules start, and a bike garage that computes its own component
+    wear from ride data because chains fail on mileage and I kept guessing. Both
+    taught me more about data modelling than any course did.
+  </p>
+
+  <p>
+    I am currently looking for a first role in bioinformatics or computational
+    biology — Flanders, Brussels, or remote from Leuven. Dutch and English.
+    The quickest way to reach me is email.
+  </p>
+
+  <SocialLinks />
+
+  <h2 class="section-label">Selected work</h2>
+  <ul class="card-list">
+    {featured.map((p) => (
+      <ProjectCard
+        href={`/projects/${p.id}`}
+        title={p.data.title}
+        summary={p.data.summary}
+        tags={p.data.tags}
+      />
+    ))}
+  </ul>
+  <p style="margin-top:1.2rem"><a href="/projects">All projects →</a></p>
+</Base>

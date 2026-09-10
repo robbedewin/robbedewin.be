@@ -1,0 +1,234 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base
+  title="CV"
+  description="Curriculum vitae of Robbe De Win — MSc Bioinformatics and MSc Biomedical Sciences, KU Leuven."
+>
+  <h1>Curriculum vitae</h1>
+  <p class="page-head__summary">
+    Bioinformatics track. Last updated September 2026.
+  </p>
+  <p style="margin-top:1.3rem">
+    <a class="download" href="/cv/Robbe_De_Win_CV.pdf" download>Download as PDF</a>
+  </p>
+
+  <h2 class="section-label">Profile</h2>
+  <p>
+    Bioinformatician with two completed master's degrees, most recently building
+    automated genome-scale metabolic modelling pipelines across roughly 1,500
+    bacterial genomes. Comfortable owning a computational pipeline end to end —
+    reconstruction, quality control, validation against experimental data, and the
+    reproducibility discipline that makes results trustworthy. Python and R daily,
+    Linux and Git as everyday tools.
+  </p>
+
+  <h2 class="section-label">Education</h2>
+
+  <div class="cv-entry">
+    <div class="cv-entry__head">
+      <span class="cv-entry__title">Master of Bioinformatics</span>
+      <span class="cv-entry__when">2024 – 2026</span>
+    </div>
+    <div class="cv-entry__where">KU Leuven · Cum Laude</div>
+    <ul>
+      <li>Thesis: <em>Pan-Metabolic Modelling Software for Therapeutics</em></li>
+      <li>
+        Relevant coursework: Machine Learning, Artificial Neural Networks,
+        Bayesian Modelling, Comparative &amp; Regulatory Genomics, Evolutionary
+        and Quantitative Genetics
+      </li>
+    </ul>
+  </div>
+
+  <div class="cv-entry">
+    <div class="cv-entry__head">
+      <span class="cv-entry__title">Master of Biomedical Sciences</span>
+      <span class="cv-entry__when">2022 – 2024</span>
+    </div>
+    <div class="cv-entry__where">KU Leuven · Cum Laude</div>
+    <ul>
+      <li>
+        Thesis: <em>Genetic Changes and Allele-Specific Expression in Induction
+        Failure T-Cell Acute Lymphoblastic Leukemia</em>
+      </li>
+    </ul>
+  </div>
+
+  <div class="cv-entry">
+    <div class="cv-entry__head">
+      <span class="cv-entry__title">Bachelor of Biomedical Sciences</span>
+      <span class="cv-entry__when">2019 – 2022</span>
+    </div>
+    <div class="cv-entry__where">KU Leuven · Magna Cum Laude</div>
+  </div>
+
+  <h2 class="section-label">Research</h2>
+
+  <div class="cv-entry">
+    <div class="cv-entry__head">
+      <span class="cv-entry__title">
+        MSc thesis — Pan-Metabolic Modelling Software for Therapeutics
+      </span>
+      <span class="cv-entry__when">2025 – 2026</span>
+    </div>
+    <div class="cv-entry__where">KU Leuven</div>
+    <ul>
+      <li>
+        Built <code>PaRMMoSaHN</code>, an open-source Python package that
+        reconstructs one pan-metabolic model per species (PPanGGOLiN pangenome
+        searched with gapseq) and derives every strain model from it by DIAMOND
+        protein-homology projection — minutes per genome instead of hours.
+      </li>
+      <li>
+        Validated on 1,010 <em>Clostridia</em> and 481 <em>Bacillus subtilis</em>
+        genomes plus seven in-house lab strains, scored against Biolog
+        substrate-utilisation data as Matthews correlation coefficient.
+      </li>
+      <li>
+        Matched or exceeded per-genome reconstruction by gapseq and CarveMe in
+        every cohort, with the highest pooled MCC on eight held-out
+        <em>B. subtilis</em> strains, at roughly 12× the throughput on the largest
+        cohort.
+      </li>
+      <li>
+        Model QC with memote; downstream flux balance analysis, gene essentiality
+        and auxotrophy prediction.
+      </li>
+      <li>
+        Code:
+        <a href="https://github.com/robbedewin/PaRMMoSaHN" rel="noopener">
+          github.com/robbedewin/PaRMMoSaHN
+        </a>
+        · <a href="/projects/parmmosahn">write-up</a>
+      </li>
+    </ul>
+  </div>
+
+  <div class="cv-entry">
+    <div class="cv-entry__head">
+      <span class="cv-entry__title">
+        MSc thesis — Genetic Changes and Allele-Specific Expression in Induction
+        Failure T-ALL
+      </span>
+      <span class="cv-entry__when">2023 – 2024</span>
+    </div>
+    <div class="cv-entry__where">KU Leuven</div>
+    <ul>
+      <li>
+        Built Snakemake WGS and RNA-seq pipelines on the telomere-to-telomere
+        T2T-CHM13 reference to profile induction-failure T-ALL patient samples:
+        somatic and structural variant calling (Mutect2, GRIDSS) and copy-number
+        analysis (ASCAT).
+      </li>
+      <li>
+        Implemented a beta-binomial test for allele-specific expression combining
+        DNA-derived allele counts with RNA read counts. Recovered known
+        <em>NOTCH1</em> and <em>CDKN2A/B</em> lesions and identified <em>FAT1</em>
+        as showing strong allele-specific expression.
+      </li>
+      <li><a href="/projects/tall-allele-specific-expression">Write-up</a></li>
+    </ul>
+  </div>
+
+  <h2 class="section-label">Technical skills</h2>
+  <dl class="cv-skills">
+    <div>
+      <dt>Languages</dt>
+      <dd>Python, R, Bash; LaTeX</dd>
+    </div>
+    <div>
+      <dt>Bioinformatics</dt>
+      <dd>
+        Genome-scale metabolic modelling (gapseq, CarveMe, memote), flux balance
+        analysis, pangenome analysis (PPanGGOLiN, DIAMOND), gene essentiality and
+        auxotrophy prediction; WGS/RNA-seq variant calling (Mutect2, GRIDSS,
+        ASCAT), allele-specific expression
+      </dd>
+    </div>
+    <div>
+      <dt>Workflows</dt>
+      <dd>Snakemake, conda, reproducible staged pipelines</dd>
+    </div>
+    <div>
+      <dt>Data &amp; ML</dt>
+      <dd>
+        Machine learning and neural networks, Bayesian modelling,
+        high-dimensional data analysis, statistical validation
+      </dd>
+    </div>
+    <div>
+      <dt>Engineering</dt>
+      <dd>
+        Git/GitHub, Linux, conda environment management, pytest, Quarto,
+        reproducible pipeline design, long-running batch workloads
+      </dd>
+    </div>
+  </dl>
+
+  <h2 class="section-label">Software projects</h2>
+  <div class="cv-entry">
+    <div class="cv-entry__head">
+      <span class="cv-entry__title">financial_report &amp; market_data</span>
+    </div>
+    <ul>
+      <li>
+        A Quarto-based financial planning report generator for Belgian households,
+        fed by an instrument registry and price-series store with as-of time travel
+        so reports reproduce exactly. Tested with pytest, CI on GitHub Actions.
+        <a href="/projects/financial-planning-engine">Write-up</a> · private repositories
+      </li>
+    </ul>
+  </div>
+  <div class="cv-entry">
+    <div class="cv-entry__head">
+      <span class="cv-entry__title">BikeVault</span>
+    </div>
+    <ul>
+      <li>
+        A local-first garage inventory in Markdown and YAML with a stdlib-only
+        Python toolchain: CSV/SQLite export and per-component mileage derived from
+        training-log data. <a href="/projects/bikevault">Write-up</a>
+      </li>
+    </ul>
+  </div>
+
+  <h2 class="section-label">Work experience</h2>
+  <div class="cv-entry">
+    <div class="cv-entry__head">
+      <span class="cv-entry__title">Student summer job</span>
+      <span class="cv-entry__when">2017 – 2025</span>
+    </div>
+    <div class="cv-entry__where">Belcar (automotive)</div>
+    <ul>
+      <li>
+        Nine consecutive summers with the same employer: vehicle handling and
+        on-site movement, plus administrative support.
+      </li>
+    </ul>
+  </div>
+  <div class="cv-entry">
+    <div class="cv-entry__head">
+      <span class="cv-entry__title">Delivery driver (student)</span>
+      <span class="cv-entry__when">2020 – 2022</span>
+    </div>
+    <div class="cv-entry__where">B.B. Trans</div>
+  </div>
+
+  <h2 class="section-label">Languages</h2>
+  <dl class="cv-skills">
+    <div><dt>Dutch</dt><dd>Native</dd></div>
+    <div><dt>English</dt><dd>Full professional proficiency</dd></div>
+    <div><dt>French</dt><dd>Basic</dd></div>
+  </dl>
+
+  <h2 class="section-label">Contact</h2>
+  <p>
+    <a href="mailto:robbedewin@hotmail.com">robbedewin@hotmail.com</a> ·
+    <a href="https://linkedin.com/in/robbedewin" rel="noopener">linkedin.com/in/robbedewin</a> ·
+    <a href="https://github.com/robbedewin" rel="noopener">github.com/robbedewin</a>
+    <br />
+    Leuven, Belgium. Phone number is on the PDF.
+  </p>
+</Base>
