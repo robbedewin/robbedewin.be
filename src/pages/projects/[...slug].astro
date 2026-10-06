@@ -16,14 +16,15 @@ const d = entry.data;
 ---
 
 <Base title={d.title} description={d.description}>
-  <a class="back" href="/projects">← Projects</a>
+  <a class="back" href="/projects">← cd ..</a>
 
-  <div class="page-head">
+  <div class="page-head" style="padding-top:32px">
+    {d.kicker && <p class="tile__kicker" style="margin:0 0 1rem">{d.kicker}</p>}
     <h1>{d.title}</h1>
     <p class="page-head__summary">{d.summary}</p>
     {d.tags.length > 0 && (
       <ul class="tags">
-        {d.tags.map((t) => <li class="tag">{t}</li>)}
+        {d.tags.map((t) => <li class="tag">{t.toLowerCase()}</li>)}
       </ul>
     )}
     {(d.period || d.repo) && (
@@ -31,11 +32,13 @@ const d = entry.data;
         {d.period}
         {d.period && d.repo && <br />}
         {d.repo && (
-          <>Code: <a href={d.repo} rel="noopener">{d.repoLabel ?? d.repo}</a></>
+          <>code: <a href={d.repo} rel="noopener">{d.repoLabel ?? d.repo}</a></>
         )}
       </p>
     )}
   </div>
 
-  <Content />
+  <div class="prose">
+    <Content />
+  </div>
 </Base>

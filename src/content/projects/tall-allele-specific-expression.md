@@ -3,7 +3,8 @@ title: "Allele-specific expression in induction-failure T-ALL"
 summary: "WGS and RNA-seq pipelines rebuilt on the telomere-to-telomere reference, with a beta-binomial test for allelic imbalance."
 description: "MSc Biomedical Sciences thesis: Snakemake WGS/RNA-seq pipelines on T2T-CHM13 profiling induction-failure T-cell acute lymphoblastic leukemia, including a custom beta-binomial allele-specific expression framework."
 tags: ["Snakemake", "WGS / RNA-seq", "Variant calling", "MSc thesis"]
-order: 2
+kicker: "thesis · 2023–2024"
+order: 5
 featured: true
 period: "2023 – 2024 · MSc Biomedical Sciences thesis, KU Leuven"
 repo: "https://github.com/robbedewin/thesis_code"

@@ -1,17 +1,40 @@
 ---
 const { pathname } = Astro.url;
 const links = [
-  { href: '/', label: 'about' },
-  { href: '/projects', label: 'projects' },
-  { href: '/cv', label: 'cv' },
+  { href: '/', label: './about' },
+  { href: '/projects', label: './projects' },
+  { href: '/research', label: './research' },
+  { href: '/tools', label: './tools' },
+  { href: '/cv', label: './cv' },
 ];
 const isCurrent = (href: string) =>
   href === '/' ? pathname === '/' : pathname.startsWith(href);
+
+// The lockup reads like a shell prompt: "~/robbedewin" plus the current path,
+// each segment linking to its own level.
+const parts = pathname.replace(/\/$/, '').split('/').filter(Boolean);
+const crumbs = parts.map((p, i) => ({
+  label: `/${p}`,
+  href: '/' + parts.slice(0, i + 1).join('/'),
+  current: i === parts.length - 1,
+}));
 ---
 
 <header class="site-head">
-  <div class="shell site-head__inner">
-    <a class="site-head__name" href="/">Robbe De Win</a>
+  <div class="wrap site-head__inner">
+    <div class="lockup">
+      <a class="lockup__home" href="/" aria-label="Robbe De Win, home">
+        <img class="lockup__logo" src="/logo.svg" alt="" width="101" height="28" />
+        <span class="lockup__base">~/robbedewin</span>
+      </a>
+      {crumbs.length > 0 && (
+        <span class="lockup__path">
+          {crumbs.map((c) => (
+            <a href={c.href} aria-current={c.current ? 'page' : undefined}>{c.label}</a>
+          ))}
+        </span>
+      )}
+    </div>
     <nav class="site-nav" aria-label="Main">
       {links.map((l) => (
         <a href={l.href} aria-current={isCurrent(l.href) ? 'page' : undefined}>

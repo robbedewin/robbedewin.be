@@ -1,0 +1,63 @@
+---
+import Base from '../layouts/Base.astro';
+
+// The reports themselves are prebuilt Quarto HTML in public/research/.
+const studies = [
+  {
+    file: 'rate-of-return.html',
+    title: 'Het rendement op alles',
+    summary:
+      '150 years of real returns on equities, housing, bonds and cash through a Belgian lens (Jordà–Schularick–Taylor).',
+  },
+  {
+    file: 'lump-sum-vs-dca.html',
+    title: 'Ineens of gespreid instappen?',
+    summary:
+      'Lump-sum versus phased entry, re-derived for a Belgian investor, with a sensitivity grid over deployment horizon and equity share.',
+  },
+  {
+    file: 'market-timing.html',
+    title: 'Markttiming en ‘kopen op de dip’',
+    summary: 'Why waiting for the right moment rarely makes you richer — 150 years of evidence.',
+  },
+  {
+    file: 'passive-vs-active.html',
+    title: 'Passief versus actief',
+    summary:
+      'And what factor premia change about that conclusion. Includes a fee-drag decomposition.',
+  },
+];
+---
+
+<Base
+  title="Research"
+  description="Four reproducible research reports re-examining standard investing questions with Belgian costs and taxes, written in Dutch."
+>
+  <div class="page-head">
+    <p class="prompt">ls research/</p>
+    <h1>Four studies on investing in Belgium</h1>
+    <p class="page-head__summary">
+      Standard investing questions re-examined with Belgian costs and taxes, using
+      public long-run datasets. Each is a standalone, reproducible Quarto report,
+      written in Dutch for a Dutch-speaking reader.
+      <a href="/projects/belgian-investing-studies">How they were made →</a>
+    </p>
+  </div>
+
+  <ul class="studies">
+    {studies.map((s) => (
+      <li>
+        <a class="tile" href={`/research/${s.file}`}>
+          <span class="tile__kicker">{s.file}</span>
+          <span class="tile__title" lang="nl">{s.title}</span>
+          <span class="tile__summary">{s.summary}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+
+  <p class="note" style="margin-top:2.5rem">
+    These are educational research essays. They are not investment advice, and
+    nothing in them is tailored to any particular person's situation.
+  </p>
+</Base>

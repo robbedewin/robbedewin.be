@@ -3,7 +3,15 @@ import Base from '../layouts/Base.astro';
 ---
 
 <Base title="Not found" description="That page does not exist." noindex={true}>
-  <h1>Not found</h1>
-  <p>That page does not exist — it may have moved, or the link may be wrong.</p>
-  <p><a href="/">Back to the start</a> · <a href="/projects">Projects</a> · <a href="/cv">CV</a></p>
+  <div class="page-head">
+    <p class="prompt">cd ./that-page</p>
+    <h1>No such file or directory</h1>
+    <p class="page-head__summary">
+      That page does not exist. It may have moved, or the link may be wrong.
+    </p>
+  </div>
+  <p class="mono">
+    <a href="/">~/</a> · <a href="/projects">./projects</a> ·
+    <a href="/research">./research</a> · <a href="/cv">./cv</a>
+  </p>
 </Base>

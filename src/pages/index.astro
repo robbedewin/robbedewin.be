@@ -11,53 +11,60 @@ const featured = (await getCollection('projects'))
 
 <Base
   title="Robbe De Win"
-  description="Bioinformatician in Leuven, Belgium. Genome-scale metabolic modelling, sequencing pipelines, and the tooling around them."
+  description="Bioinformatics-trained and data-driven, in Leuven, Belgium. Data pipelines, decision tools and automation, built to be reproducible."
 >
-  <h1>Robbe De Win</h1>
+  <section class="hero">
+    <p class="prompt">whoami</p>
+    <h1>Robbe De Win<span class="caret" aria-hidden="true"></span></h1>
+    <p class="hero__lede">
+      Bioinformatics-trained, data-driven. I use data to make decisions and
+      automate what shouldn't be manual.
+    </p>
+    <p class="hero__body">
+      A thousand genomes is not a bigger version of one genome, it is a different
+      problem. That's the part I like: getting it to run reliably, validating it
+      against experimental data, and being able to say exactly how each number was
+      produced.
+    </p>
+    <SocialLinks />
+  </section>
 
-  <p class="lede">
-    I build computational pipelines and the tooling that keeps them honest. I
-    finished a Master of Bioinformatics at KU Leuven in 2026, after a Master of
-    Biomedical Sciences — two theses, one on genome-scale metabolic modelling
-    across roughly 1,500 bacterial genomes, one on allele-specific expression in
-    treatment-resistant leukemia.
-  </p>
+  <dl class="facts" aria-label="Background">
+    <div>
+      <dt>education</dt>
+      <dd>
+        MSc Bioinformatics<br />
+        MSc Biomedical Sciences<br />
+        <span class="muted">KU Leuven</span>
+      </dd>
+    </div>
+    <div>
+      <dt>looking for</dt>
+      <dd>First role in data science, analytics or automation, using data to drive decisions</dd>
+    </div>
+    <div>
+      <dt>where</dt>
+      <dd>Flanders, Brussels, or remote from Leuven</dd>
+    </div>
+    <div>
+      <dt>languages</dt>
+      <dd>Dutch, English</dd>
+    </div>
+  </dl>
 
-  <p>
-    What draws me is the point where biology stops being a wet-lab question and
-    becomes an engineering one: a thousand genomes is not a bigger version of one
-    genome, it is a different problem. Most of what I have learned came from
-    getting a pipeline of that size to run reliably, validating its output against
-    experimental data, and being able to say afterwards exactly how a number was
-    produced.
-  </p>
-
-  <p>
-    The same habit shows up outside biology. I built a financial planning engine
-    for Belgian households because the generic advice stops working exactly where
-    the local tax rules start, and a bike garage that computes its own component
-    wear from ride data because chains fail on mileage and I kept guessing. Both
-    taught me more about data modelling than any course did.
-  </p>
-
-  <p>
-    I am currently looking for a first role in bioinformatics or computational
-    biology — Flanders, Brussels, or remote from Leuven. Dutch and English.
-    The quickest way to reach me is email.
-  </p>
-
-  <SocialLinks />
-
-  <h2 class="section-label">Selected work</h2>
-  <ul class="card-list">
+  <div class="section-head">
+    <h2>Projects</h2>
+    <a href="/projects">ls projects/ →</a>
+  </div>
+  <ul class="card-grid">
     {featured.map((p) => (
       <ProjectCard
         href={`/projects/${p.id}`}
+        kicker={p.data.kicker}
         title={p.data.title}
         summary={p.data.summary}
         tags={p.data.tags}
       />
     ))}
   </ul>
-  <p style="margin-top:1.2rem"><a href="/projects">All projects →</a></p>
 </Base>

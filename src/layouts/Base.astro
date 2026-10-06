@@ -22,6 +22,7 @@ const year = new Date().getFullYear();
     <link rel="canonical" href={canonical} />
     {noindex && <meta name="robots" content="noindex" />}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="theme-color" content="#0b1a2c" />
     <link rel="sitemap" href="/sitemap-index.xml" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content={fullTitle} />
@@ -34,13 +35,13 @@ const year = new Date().getFullYear();
   <body>
     <a class="skip" href="#main">Skip to content</a>
     <Nav />
-    <main id="main" class="shell">
+    <main id="main" class="wrap">
       <slot />
     </main>
     <footer class="site-foot">
-      <div class="shell" style="display:contents">
+      <div class="wrap site-foot__inner">
         <span>© {year} Robbe De Win</span>
-        <span>Leuven, Belgium</span>
+        <span>built with astro · leuven, be</span>
       </div>
     </footer>
   </body>

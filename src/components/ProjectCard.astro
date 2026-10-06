@@ -3,19 +3,29 @@ interface Props {
   href: string;
   title: string;
   summary: string;
+  kicker?: string;
   tags?: string[];
-  level?: 2 | 3;
+  variant?: 'tile' | 'row';
 }
-const { href, title, summary, tags = [], level = 3 } = Astro.props;
-const Heading = `h${level}` as 'h2' | 'h3';
+const { href, title, summary, kicker, tags = [], variant = 'tile' } = Astro.props;
+const tagLine = tags.map((t) => t.toLowerCase()).join(' · ');
 ---
 
-<li class="card">
-  <Heading class="card__title"><a href={href}>{title}</a></Heading>
-  <p class="card__summary">{summary}</p>
-  {tags.length > 0 && (
-    <ul class="tags">
-      {tags.map((t) => <li class="tag">{t}</li>)}
-    </ul>
-  )}
+<li>
+  <a class={variant} href={href}>
+    {kicker && <span class={`${variant}__kicker`}>{kicker}</span>}
+    {variant === 'tile' ? (
+      <>
+        <span class="tile__title">{title}</span>
+        <span class="tile__summary">{summary}</span>
+        {tagLine && <span class="tile__tags">{tagLine}</span>}
+      </>
+    ) : (
+      <span class="row__body">
+        <span class="row__title">{title}</span>
+        <span class="row__summary">{summary}</span>
+        {tagLine && <span class="row__tags">{tagLine}</span>}
+      </span>
+    )}
+  </a>
 </li>

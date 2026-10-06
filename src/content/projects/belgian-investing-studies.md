@@ -3,7 +3,9 @@ title: "Four studies on investing in Belgium"
 summary: "Standalone research reports on lump-sum versus phased entry, market timing, passive versus active, and 150 years of real returns."
 description: "Reproducible Quarto research reports re-examining standard investing questions with Belgian costs and taxes, using public long-run datasets."
 tags: ["Quarto", "Research", "Public data", "Dutch"]
-order: 4
+kicker: "research · nl"
+order: 3
+featured: true
 period: "Personal project · written in Dutch"
 ---
 

@@ -3,7 +3,8 @@ title: "BikeVault — a local-first garage inventory"
 summary: "Plain Markdown and YAML as the data model, stdlib Python as the toolchain, and ride data from an API turning into per-component wear."
 description: "A local-first bike garage and maintenance tracker built on Markdown files with YAML frontmatter, exporting to CSV and SQLite, with automatic per-component mileage from intervals.icu."
 tags: ["Python", "Data modelling", "SQLite", "Obsidian"]
-order: 5
+kicker: "personal"
+order: 8
 period: "Personal project"
 ---
 

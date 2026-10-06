@@ -1,0 +1,41 @@
+---
+import Base from '../../layouts/Base.astro';
+import data from '../../data/damodaran-real.json';
+---
+
+<Base
+  title="Tools"
+  description="Interactive calculators built on public long-run market data."
+>
+  <div class="page-head">
+    <p class="prompt">ls tools/</p>
+    <h1>Tools</h1>
+    <p class="page-head__summary">
+      Interactive calculators on public long-run data. They run entirely in
+      your browser: nothing you enter leaves your device.
+    </p>
+  </div>
+
+  <ul class="studies">
+    <li>
+      <a class="tile" href="/tools/withdrawal">
+        <span class="tile__kicker">monte carlo · {data.years[0]}–{data.years[data.years.length - 1]}</span>
+        <span class="tile__title">How long does the money last?</span>
+        <span class="tile__summary">
+          A safe-withdrawal-rate calculator: the chance a portfolio survives a
+          fixed yearly withdrawal, across 5,000 futures built from real returns.
+        </span>
+      </a>
+    </li>
+    <li>
+      <a class="tile" href="/tools/history">
+        <span class="tile__kicker">charts · {data.years[0]}–{data.years[data.years.length - 1]}</span>
+        <span class="tile__title">A century of returns, after inflation</span>
+        <span class="tile__summary">
+          Growth of €1, rolling returns and drawdowns for US stocks, bonds and
+          cash, all corrected for inflation.
+        </span>
+      </a>
+    </li>
+  </ul>
+</Base>

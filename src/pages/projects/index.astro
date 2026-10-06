@@ -12,16 +12,20 @@ const projects = (await getCollection('projects')).sort(
   title="Projects"
   description="Genome-scale metabolic modelling, sequencing pipelines, a Belgian financial planning engine, and a local-first bike garage."
 >
-  <h1>Projects</h1>
-  <p class="page-head__summary">
-    Two master's theses and three things I built because I wanted them to exist.
-  </p>
+  <div class="page-head">
+    <p class="prompt">ls projects/</p>
+    <h1>Projects</h1>
+    <p class="page-head__summary">
+      Two master's theses and five things I built because I wanted them to exist.
+    </p>
+  </div>
 
-  <ul class="card-list" style="margin-top:2rem">
+  <ul class="rows">
     {projects.map((p) => (
       <ProjectCard
+        variant="row"
         href={`/projects/${p.id}`}
-        level={2}
+        kicker={p.data.kicker}
         title={p.data.title}
         summary={p.data.summary}
         tags={p.data.tags}

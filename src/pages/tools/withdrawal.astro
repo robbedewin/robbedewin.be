@@ -1,0 +1,226 @@
+---
+import Base from '../../layouts/Base.astro';
+import data from '../../data/damodaran-real.json';
+
+const first = data.years[0];
+const last = data.years[data.years.length - 1];
+---
+
+<Base
+  title="Withdrawal calculator"
+  description="How long does a portfolio last? A Monte Carlo safe-withdrawal-rate calculator on 98 years of real US stock and bond returns."
+>
+  <div class="page-head">
+    <p class="prompt">./withdrawal --simulate</p>
+    <h1>How long does the money last?</h1>
+    <p class="page-head__summary">
+      Pick a starting portfolio, a yearly withdrawal and a stock/bond mix. The
+      calculator replays 5,000 possible futures built from real returns between
+      {first} and {last}, and shows how often the money runs out.
+    </p>
+  </div>
+
+  <div class="tool">
+    <form class="tool__form" id="swr-form" aria-label="Inputs">
+      <div class="field">
+        <label for="start">Starting portfolio</label>
+        <div class="field__input"><span aria-hidden="true">€</span>
+          <input id="start" name="start" type="number" inputmode="numeric" min="1000" step="1000" value="500000" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="withdrawal">Withdrawal per year, in today's money</label>
+        <div class="field__input"><span aria-hidden="true">€</span>
+          <input id="withdrawal" name="withdrawal" type="number" inputmode="numeric" min="0" step="500" value="20000" />
+        </div>
+        <p class="field__hint" id="rate-hint"></p>
+      </div>
+      <div class="field">
+        <label for="years">Years <output for="years" id="years-out">30</output></label>
+        <input id="years" name="years" type="range" min="10" max="60" step="1" value="30" />
+      </div>
+      <div class="field">
+        <label for="equity">Stocks <output for="equity" id="equity-out">60%</output></label>
+        <input id="equity" name="equity" type="range" min="0" max="100" step="5" value="60" />
+        <p class="field__hint">The rest in long-term government bonds, rebalanced every year.</p>
+      </div>
+      <div class="field">
+        <label for="fee">Yearly costs (fund fees)</label>
+        <div class="field__input">
+          <input id="fee" name="fee" type="number" inputmode="decimal" min="0" max="3" step="0.05" value="0.20" />
+          <span aria-hidden="true">%</span>
+        </div>
+      </div>
+    </form>
+
+    <section class="tool__result" aria-label="Result">
+      <noscript>
+        <p class="note">The calculator runs in your browser and needs JavaScript.</p>
+      </noscript>
+      <div class="result-head">
+        <div>
+          <p class="result-label">chance the money lasts</p>
+          <p class="result-big" id="success" aria-live="polite">–</p>
+        </div>
+        <div>
+          <p class="result-label">sustainable rate at 95%</p>
+          <p class="result-mid" id="swr95">–</p>
+          <p class="field__hint" id="swr95-hint"></p>
+        </div>
+      </div>
+      <figure class="fan">
+        <svg id="fan" viewBox="0 0 640 320" role="img" aria-labelledby="fan-caption"></svg>
+        <figcaption id="fan-caption" class="fan__caption">
+          Portfolio value in today's money. Shaded: the middle 50% and 80% of
+          outcomes; line: the median.
+        </figcaption>
+      </figure>
+      <p class="result-summary" id="summary"></p>
+    </section>
+  </div>
+
+  <section class="cv-section" style="margin-top:3rem">
+    <h2>method</h2>
+    <div class="cv-section__body">
+      <p>
+        Each simulated future is stitched together from blocks of real history:
+        a random starting year, then the years that followed it, with a new
+        random jump on average every five years (a stationary block bootstrap).
+        Keeping years together preserves crashes, recoveries and long stretches
+        of high inflation, which shuffling single years would break up.
+      </p>
+      <p>
+        Returns are US stocks (S&amp;P 500) and 10-year Treasury bonds after
+        inflation, {first}–{last}, from
+        <a href={data.url} rel="noopener">Aswath Damodaran's historical returns</a>.
+        The withdrawal stays fixed in today's money and is taken at the end of
+        each year. A future "fails" in the first year the portfolio cannot pay
+        it in full. Costs are subtracted from the return every year.
+      </p>
+      <p>
+        The engine is a port of the one in my
+        <a href="/projects/financial-planning-engine">financial planning engine</a>,
+        and is tested to give the same failure rates.
+      </p>
+      <p class="note">
+        This is an educational tool, not advice. It uses US market history,
+        ignores taxes such as the Belgian stock-exchange tax, and assumes you
+        never change course. Real plans adapt.
+      </p>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import data from '../../data/damodaran-real.json';
+  import { blend, simulate, sustainableRate } from '../../lib/swr.js';
+
+  const $ = (id) => document.getElementById(id);
+  const form = $('swr-form');
+  const eur = new Intl.NumberFormat('nl-BE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+  const eurShort = new Intl.NumberFormat('nl-BE', { style: 'currency', currency: 'EUR', notation: 'compact', maximumFractionDigits: 1 });
+  const pct = (x, d = 0) => `${(x * 100).toFixed(d)}%`;
+  const SVG = 'http://www.w3.org/2000/svg';
+
+  function read() {
+    const num = (id, fallback) => {
+      const v = parseFloat($(id).value);
+      return Number.isFinite(v) && v >= 0 ? v : fallback;
+    };
+    return {
+      start: Math.max(num('start', 500000), 1),
+      withdrawal: num('withdrawal', 0),
+      years: num('years', 30),
+      equity: num('equity', 60) / 100,
+      fee: Math.min(num('fee', 0), 3) / 100,
+    };
+  }
+
+  function el(name, attrs, parent) {
+    const node = document.createElementNS(SVG, name);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    parent.appendChild(node);
+    return node;
+  }
+
+  function draw(bands, years) {
+    const svg = $('fan');
+    svg.replaceChildren();
+    // Draw at the real on-screen width so labels stay legible on phones.
+    const W = Math.max(Math.round(svg.getBoundingClientRect().width) || 640, 300);
+    const H = Math.round(Math.min(Math.max(W * 0.5, 220), 340));
+    const L = 64, R = 12, T = 12, B = 30;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const rough = (Math.max(...bands[90]) || 1) / 4;
+    const mag = 10 ** Math.floor(Math.log10(rough));
+    const tick = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].map((m) => m * mag).find((s) => s >= rough);
+    const top = tick * 4;
+    const x = (t) => L + (t / years) * (W - L - R);
+    const y = (v) => T + (1 - v / top) * (H - T - B);
+
+    for (let i = 0; i <= 4; i++) {
+      const v = tick * i;
+      el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'fan__grid' }, svg);
+      el('text', { x: L - 8, y: y(v) + 4, 'text-anchor': 'end', class: 'fan__label' }, svg).textContent = eurShort.format(v);
+    }
+    const step = years > 40 ? 10 : 5;
+    for (let t = 0; t <= years; t += step) {
+      el('text', { x: x(t), y: H - 8, 'text-anchor': 'middle', class: 'fan__label' }, svg).textContent = `${t}y`;
+    }
+
+    const area = (lo, hi) => {
+      let d = '';
+      for (let t = 0; t <= years; t++) d += `${t ? 'L' : 'M'}${x(t).toFixed(1)},${y(hi[t]).toFixed(1)}`;
+      for (let t = years; t >= 0; t--) d += `L${x(t).toFixed(1)},${y(lo[t]).toFixed(1)}`;
+      return d + 'Z';
+    };
+    el('path', { d: area(bands[10], bands[90]), class: 'fan__outer' }, svg);
+    el('path', { d: area(bands[25], bands[75]), class: 'fan__inner' }, svg);
+    let line = '';
+    for (let t = 0; t <= years; t++) line += `${t ? 'L' : 'M'}${x(t).toFixed(1)},${y(bands[50][t]).toFixed(1)}`;
+    el('path', { d: line, class: 'fan__median' }, svg);
+  }
+
+  function run() {
+    const v = read();
+    $('years-out').textContent = String(v.years);
+    $('equity-out').textContent = pct(v.equity);
+    $('rate-hint').textContent = `That is ${pct(v.withdrawal / v.start, 1)} of the starting portfolio.`;
+
+    const returns = blend(data, v.equity, v.fee);
+    const res = simulate(returns, {
+      start: v.start, withdrawal: v.withdrawal, years: v.years, bands: [10, 25, 50, 75, 90],
+    });
+    const rate = sustainableRate(returns, { years: v.years });
+
+    $('success').textContent = pct(1 - res.failure);
+    $('swr95').textContent = pct(rate, 1);
+    $('swr95-hint').textContent = `${eur.format(rate * v.start)} per year fails in at most 5% of futures.`;
+    draw(res.bands, v.years);
+
+    const failed = Array.from(res.failureYears).filter((y) => y > 0).sort((a, b) => a - b);
+    const median = res.bands[50][v.years];
+    const p10 = res.bands[10][v.years];
+    let text = `After ${v.years} years the median portfolio is worth ${eur.format(median)} in today's money.`;
+    text += p10 > 0
+      ? ` In the worst 10% of futures it ends below ${eur.format(p10)}.`
+      : failed.length
+        ? ` In the futures that run out, the median runs dry in year ${failed[Math.floor(failed.length / 2)]}.`
+        : '';
+    $('summary').textContent = text;
+  }
+
+  let queued = false;
+  form.addEventListener('input', () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; run(); });
+  });
+  form.addEventListener('submit', (e) => e.preventDefault());
+  let lastWidth = 0;
+  new ResizeObserver(([entry]) => {
+    const w = Math.round(entry.contentRect.width);
+    if (Math.abs(w - lastWidth) > 40) { lastWidth = w; run(); }
+  }).observe($('fan'));
+  run();
+</script>

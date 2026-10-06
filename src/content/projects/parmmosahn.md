@@ -3,7 +3,8 @@ title: "PaRMMoSaHN — pan-metabolic modelling at scale"
 summary: "Reconstruct one metabolic model per species, then project strain models from it by protein homology — minutes per genome instead of hours."
 description: "An open-source Python package that builds genome-scale metabolic models for ~1,500 bacterial genomes by pan-model reconstruction and homology projection, validated against Biolog phenotype data."
 tags: ["Python", "Metabolic modelling", "Pangenomics", "MSc thesis"]
-order: 1
+kicker: "thesis · 2025–2026"
+order: 4
 featured: true
 period: "2025 – 2026 · MSc Bioinformatics thesis, KU Leuven"
 repo: "https://github.com/robbedewin/PaRMMoSaHN"

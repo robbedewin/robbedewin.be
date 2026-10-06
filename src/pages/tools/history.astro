@@ -1,0 +1,223 @@
+---
+import Base from '../../layouts/Base.astro';
+import data from '../../data/damodaran-real.json';
+
+const first = data.years[0];
+const last = data.years[data.years.length - 1];
+---
+
+<Base
+  title="Market history"
+  description="Explore 98 years of real US stock, bond and cash returns: growth after inflation, rolling returns and drawdowns."
+>
+  <div class="page-head">
+    <p class="prompt">./history --plot</p>
+    <h1>A century of returns, after inflation</h1>
+    <p class="page-head__summary">
+      US stocks, long-term government bonds and cash (Treasury bills),
+      {first}–{last}, all corrected for inflation. Switch views to see how
+      much the starting year matters and how deep the falls went.
+    </p>
+  </div>
+
+  <div class="tool">
+    <form class="tool__form" id="hist-form" aria-label="Chart options">
+      <fieldset class="field">
+        <legend>View</legend>
+        <div class="segmented">
+          <input type="radio" name="view" id="v-growth" value="growth" checked />
+          <label for="v-growth">growth of €1</label>
+          <input type="radio" name="view" id="v-rolling" value="rolling" />
+          <label for="v-rolling">rolling return</label>
+          <input type="radio" name="view" id="v-drawdown" value="drawdown" />
+          <label for="v-drawdown">drawdowns</label>
+        </div>
+      </fieldset>
+      <div class="field" id="window-field">
+        <label for="window">Holding period <output for="window" id="window-out">20 years</output></label>
+        <input id="window" name="window" type="range" min="1" max="40" step="1" value="20" />
+      </div>
+      <fieldset class="field">
+        <legend>Series</legend>
+        <label class="check"><input type="checkbox" name="series" value="stocks" checked /><span class="swatch swatch--stocks"></span>stocks</label>
+        <label class="check"><input type="checkbox" name="series" value="bonds" checked /><span class="swatch swatch--bonds"></span>bonds</label>
+        <label class="check"><input type="checkbox" name="series" value="bills" checked /><span class="swatch swatch--bills"></span>cash</label>
+      </fieldset>
+    </form>
+
+    <section class="tool__result" aria-label="Chart">
+      <noscript><p class="note">The chart is drawn in your browser and needs JavaScript.</p></noscript>
+      <figure class="fan">
+        <svg id="chart" viewBox="0 0 640 320" role="img" aria-labelledby="chart-caption"></svg>
+        <figcaption id="chart-caption" class="fan__caption"></figcaption>
+      </figure>
+      <p class="result-summary" id="summary" aria-live="polite"></p>
+    </section>
+  </div>
+
+  <section class="cv-section" style="margin-top:3rem">
+    <h2>data</h2>
+    <div class="cv-section__body">
+      <p>
+        Annual returns of the S&amp;P 500 (with dividends), 10-year US Treasury
+        bonds and 3-month Treasury bills, minus US inflation, from
+        <a href={data.url} rel="noopener">Aswath Damodaran's historical returns</a>.
+        These are the same series the
+        <a href="/tools/withdrawal">withdrawal calculator</a> samples from.
+      </p>
+      <p>
+        A rolling return is the average yearly real return over the holding
+        period that ends in a given year. A drawdown is how far the inflation-
+        adjusted value sits below its previous peak.
+      </p>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import data from '../../data/damodaran-real.json';
+
+  const $ = (id) => document.getElementById(id);
+  const form = $('hist-form');
+  const SVG = 'http://www.w3.org/2000/svg';
+  const NAMES = { stocks: 'stocks', bonds: 'bonds', bills: 'cash' };
+  const years = data.years;
+  const pct = (x, d = 1) => `${x >= 0 ? '' : '−'}${Math.abs(x * 100).toFixed(d)}%`;
+  const num = new Intl.NumberFormat('nl-BE', { maximumFractionDigits: 2 });
+
+  // Value of 1 invested at the start of the first year, after each year.
+  function growth(r) {
+    const out = [1];
+    for (const x of r) out.push(out[out.length - 1] * (1 + x));
+    return out; // length years + 1; index 0 = start of first year
+  }
+  function rolling(r, w) {
+    const g = growth(r);
+    return r.map((_, i) => (i + 1 >= w ? (g[i + 1] / g[i + 1 - w]) ** (1 / w) - 1 : null));
+  }
+  function drawdown(r) {
+    const g = growth(r);
+    let peak = g[0];
+    return g.map((v) => { peak = Math.max(peak, v); return v / peak - 1; });
+  }
+
+  function el(name, attrs, parent) {
+    const node = document.createElementNS(SVG, name);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+    parent.appendChild(node);
+    return node;
+  }
+
+  function niceTicks(lo, hi, n = 5) {
+    const rough = (hi - lo) / n;
+    const mag = 10 ** Math.floor(Math.log10(rough));
+    const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= rough);
+    const ticks = [];
+    for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) ticks.push(+v.toFixed(10));
+    return ticks;
+  }
+
+  // series: [{key, xs (years), ys}]; opts: {log, fmt}
+  function draw(series, opts) {
+    const svg = $('chart');
+    svg.replaceChildren();
+    const W = Math.max(Math.round(svg.getBoundingClientRect().width) || 640, 300);
+    const H = Math.round(Math.min(Math.max(W * 0.55, 240), 360));
+    const L = 58, R = 12, T = 12, B = 30;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    if (!series.length) return;
+
+    const all = series.flatMap((s) => s.ys.filter((v) => v != null));
+    const tf = opts.log ? Math.log10 : (v) => v;
+    let lo = Math.min(...all.map(tf)), hi = Math.max(...all.map(tf));
+    if (!opts.log) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+    const x0 = series[0].xs[0], x1 = series[0].xs[series[0].xs.length - 1];
+    const x = (yr) => L + ((yr - x0) / (x1 - x0)) * (W - L - R);
+    const y = (v) => T + (1 - (tf(v) - lo) / (hi - lo || 1)) * (H - T - B);
+
+    const ticks = opts.log
+      ? niceTicks(Math.floor(lo), Math.ceil(hi), 6).filter((t) => Number.isInteger(t)).map((t) => 10 ** t)
+      : niceTicks(lo, hi);
+    for (const v of ticks) {
+      if (tf(v) < lo - 1e-9 || tf(v) > hi + 1e-9) continue;
+      el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: v === 0 ? 'fan__zero' : 'fan__grid' }, svg);
+      el('text', { x: L - 8, y: y(v) + 4, 'text-anchor': 'end', class: 'fan__label' }, svg).textContent = opts.fmt(v);
+    }
+    const span = x1 - x0;
+    const step = span > 60 ? 20 : 10;
+    for (let yr = Math.ceil(x0 / step) * step; yr <= x1; yr += step) {
+      el('text', { x: x(yr), y: H - 8, 'text-anchor': 'middle', class: 'fan__label' }, svg).textContent = String(yr);
+    }
+    for (const s of series) {
+      let d = '';
+      let pen = false;
+      s.xs.forEach((yr, i) => {
+        const v = s.ys[i];
+        if (v == null) { pen = false; return; }
+        d += `${pen ? 'L' : 'M'}${x(yr).toFixed(1)},${y(v).toFixed(1)}`;
+        pen = true;
+      });
+      el('path', { d, class: `line line--${s.key}` }, svg);
+    }
+  }
+
+  function run() {
+    const fd = new FormData(form);
+    const view = fd.get('view');
+    const keys = fd.getAll('series');
+    const w = Number(fd.get('window'));
+    $('window-field').hidden = view !== 'rolling';
+    $('window-out').textContent = `${w} year${w === 1 ? '' : 's'}`;
+
+    const startYears = [years[0] - 1, ...years]; // growth/drawdown points sit at year ends
+    let series, opts, caption, summary = [];
+    if (view === 'growth') {
+      series = keys.map((k) => ({ key: k, xs: startYears, ys: growth(data[k]) }));
+      opts = { log: true, fmt: (v) => `€${num.format(v)}` };
+      caption = `Value of €1 invested at the start of ${years[0]}, in today's money (log scale).`;
+      const money = (v) => `€${v >= 100 ? Math.round(v).toLocaleString('nl-BE') : v.toLocaleString('nl-BE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      for (const s of series) summary.push(`${money(s.ys[s.ys.length - 1])} in ${NAMES[s.key]}`);
+      const list = summary.length > 1 ? `${summary.slice(0, -1).join(', ')} and ${summary[summary.length - 1]}` : summary[0];
+      summary = summary.length ? `By the end of ${years[years.length - 1]}, €1 had grown to ${list}, after inflation.` : '';
+    } else if (view === 'rolling') {
+      series = keys.map((k) => ({ key: k, xs: years, ys: rolling(data[k], w) }));
+      opts = { log: false, fmt: (v) => pct(v, 0) };
+      caption = `Average yearly real return over the ${w} years ending in each year.`;
+      for (const s of series) {
+        const vals = s.ys.map((v, i) => [v, years[i]]).filter(([v]) => v != null);
+        if (!vals.length) continue;
+        const best = vals.reduce((a, b) => (b[0] > a[0] ? b : a));
+        const worst = vals.reduce((a, b) => (b[0] < a[0] ? b : a));
+        summary.push(`${NAMES[s.key]}: worst ${pct(worst[0])} a year (to ${worst[1]}), best ${pct(best[0])} (to ${best[1]})`);
+      }
+      summary = summary.length ? `Over any ${w}-year stretch, ${summary.join('; ')}.` : '';
+    } else {
+      series = keys.map((k) => ({ key: k, xs: startYears, ys: drawdown(data[k]) }));
+      opts = { log: false, fmt: (v) => pct(v, 0) };
+      caption = 'How far the inflation-adjusted value sat below its previous peak.';
+      for (const s of series) {
+        let min = 0, at = 0;
+        s.ys.forEach((v, i) => { if (v < min) { min = v; at = i; } });
+        const peak = s.ys.slice(0, at + 1).lastIndexOf(0);
+        const back = s.ys.findIndex((v, i) => i > at && v >= -1e-9);
+        const rec = back > 0
+          ? `and took ${back - peak} years from its ${startYears[peak]} peak to recover`
+          : 'and is not yet back at its old peak';
+        summary.push(`${NAMES[s.key]} fell ${pct(-min, 0)} by ${startYears[at]} ${rec}`);
+      }
+      summary = summary.length ? `Deepest falls in real terms: ${summary.join('; ')}.` : '';
+    }
+    $('chart-caption').textContent = caption;
+    $('summary').textContent = summary || 'Pick at least one series.';
+    draw(series, opts);
+  }
+
+  form.addEventListener('input', () => requestAnimationFrame(run));
+  form.addEventListener('submit', (e) => e.preventDefault());
+  let lastWidth = 0;
+  new ResizeObserver(([entry]) => {
+    const w = Math.round(entry.contentRect.width);
+    if (Math.abs(w - lastWidth) > 40) { lastWidth = w; run(); }
+  }).observe($('chart'));
+  run();
+</script>
