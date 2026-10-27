@@ -1,9 +1,9 @@
 ---
 title: "Recepten — an offline-first recipe app for a few households"
 summary: "A shared recipe library with per-household collections, a week menu that merges into one grocery list, and an installable app that works without signal in the kitchen."
-description: "A private, installable recipe web app for a few households: Astro on Cloudflare Pages, a D1 database, Pages Functions for login, and a service worker for offline use."
+description: "An offline-first recipe web app for a few households with an interactive browser demo: Astro on Cloudflare Pages, a D1 database, Pages Functions for login, and a service worker for offline use."
 tags: ["Astro", "Cloudflare", "SQLite (D1)", "Offline-first"]
-kicker: "personal · private"
+kicker: "personal · demo"
 featured: true
 order: 6
 period: "2026 · Personal project · in use by a few households"
@@ -14,7 +14,8 @@ wanted one place that works the way cooking does: on a phone propped against
 the backsplash, with flour on your hands and no signal in the kitchen.
 
 The live app is private, because it holds a few households' own recipes and
-shopping habits. This page describes how it is built.
+shopping habits, but a public interactive demo with sample data is available
+below. This page describes how it is built.
 
 ## What it does
 
@@ -23,7 +24,12 @@ shopping habits. This page describes how it is built.
   to it, change its own copy, or add new recipes from the site.
 - **From week menu to one list.** A household plans its week on any of its
   phones, and the week's ingredients merge into a single grocery list, sorted
-  by store section and ready to paste into a checklist.
+  by store section (customised to their supermarket) and ready to paste into a
+  checklist.
+- **"Zin in?" dish matching.** Household members swipe through recipe cards
+  independently; dishes both people want produce an instant match for dinner.
+- **Freezer inventory.** Home-cooked portions tracked by date, with defrost
+  reminders on the week menu so frozen batches don't get forgotten.
 - **Built for the kitchen.** A servings scaler, the screen stays on while
   cooking, and steps tick off with a tap.
 - **Every recipe as a book.** One page renders the whole collection as a
@@ -56,10 +62,13 @@ grocery-list order. A Playwright smoke test runs the built site end to end.
 
 <div class="note">
 
-The app is private and has no public demo. I am happy to walk through it,
-with sample data, in a conversation.
+The live app is private to protect each household's data. An interactive
+demo runs entirely in the browser with twenty sample recipes, a pre-filled
+week menu and synthetic data.
 
 </div>
+
+<p><a class="download" href="https://recepten.robbedewin.be/demo/" rel="noopener">Try the interactive demo (Dutch, sample data)</a></p>
 
 ## What it taught me
 
