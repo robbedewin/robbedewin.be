@@ -5,14 +5,15 @@ import data from '../../data/damodaran-real.json';
 
 <Base
   title="Tools"
-  description="Interactive calculators built on public long-run market data."
+  description="Interactive calculators and charts built on public data, from long-run market returns to the wind forecast."
 >
   <div class="page-head">
     <p class="prompt">ls tools/</p>
     <h1>Tools</h1>
     <p class="page-head__summary">
-      Interactive calculators on public long-run data. They run entirely in
-      your browser: nothing you enter leaves your device.
+      Interactive tools on public data. They run in your browser and store
+      nothing. The calculators send nothing anywhere; the tailwind finder only
+      asks Open-Meteo for the forecast at your road.
     </p>
   </div>
 
@@ -34,6 +35,16 @@ import data from '../../data/damodaran-real.json';
         <span class="tile__summary">
           Growth of €1, rolling returns and drawdowns for US stocks, bonds and
           cash, all corrected for inflation.
+        </span>
+      </a>
+    </li>
+    <li>
+      <a class="tile" href="/tools/tailwind">
+        <span class="tile__kicker">map · wind forecast · next 3 days</span>
+        <span class="tile__title">Where's the tailwind?</span>
+        <span class="tile__summary">
+          Draw a road and see, hour by hour, how much of the forecast wind
+          pushes you along it. For picking the day to go after a segment.
         </span>
       </a>
     </li>

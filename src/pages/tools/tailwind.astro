@@ -1,0 +1,508 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+
+<Base
+  title="Tailwind finder"
+  description="Draw a road on the map and see, hour by hour for the next three days, how much of the forecast wind pushes you along it."
+>
+  <div class="page-head">
+    <p class="prompt">./tailwind --road</p>
+    <h1>Where's the tailwind?</h1>
+    <p class="page-head__summary">
+      Draw a road in the direction you ride it. The tool splits the forecast wind into the part
+      that pushes you along and the part that hits you from the side, hour by hour for the next
+      three days, and lists the windows worth a hard effort.
+    </p>
+  </div>
+
+  <div class="tw-map" id="map" role="application" aria-label="Map: click along a road in riding order"></div>
+
+  <div class="tool">
+    <form class="tool__form" id="tw-form" aria-label="Road and threshold">
+      <div class="field">
+        <label for="find">Find a place</label>
+        <div class="field__input">
+          <input id="find" type="search" placeholder="Leuven, Kwaremont, …" autocomplete="off" />
+        </div>
+        <p class="field__hint" id="find-hint">Press Enter to jump there.</p>
+      </div>
+
+      <div class="field">
+        <span class="tw-label" id="road-label">Your road</span>
+        <p class="tw-road" id="road" aria-live="polite" aria-labelledby="road-label">Click the map along a road, in the direction you ride it.</p>
+        <div class="tw-buttons">
+          <button class="btn" type="button" id="undo" disabled>undo point</button>
+          <button class="btn" type="button" id="clear" disabled>clear</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="min">Worth it from <output for="min" id="min-out">15 km/h</output></label>
+        <input id="min" type="range" min="5" max="40" step="1" value="15" />
+        <p class="field__hint">Tailwind along the road, not total wind speed.</p>
+      </div>
+    </form>
+
+    <section class="tool__result" aria-label="Forecast">
+      <noscript>
+        <p class="note">The map and forecast run in your browser and need JavaScript.</p>
+      </noscript>
+      <div class="result-head">
+        <div>
+          <p class="result-label">best tailwind, next 3 days</p>
+          <p class="result-big" id="best" aria-live="polite">–</p>
+        </div>
+        <div>
+          <p class="result-label">when</p>
+          <p class="result-mid" id="when">–</p>
+          <p class="field__hint" id="when-hint"></p>
+        </div>
+      </div>
+
+      <figure class="fan tw-chart">
+        <svg id="chart" viewBox="0 0 640 260" role="img" aria-labelledby="chart-caption" tabindex="0"></svg>
+        <div class="tw-tip" id="tip" hidden></div>
+        <figcaption id="chart-caption" class="fan__caption">
+          Wind along the road per hour, in km/h. <span class="tw-key tw-key--tail"></span>Above the
+          line: tailwind. <span class="tw-key tw-key--head"></span>Below: headwind. Dashed: your
+          threshold; shaded columns: night.
+        </figcaption>
+      </figure>
+      <p class="result-summary" id="summary"></p>
+
+      <details class="tw-table">
+        <summary>Hour by hour, as a table</summary>
+        <div class="tw-table__scroll">
+          <table>
+            <thead><tr><th>hour</th><th>tailwind</th><th>crosswind</th><th>wind</th><th>gusts</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+  </div>
+
+  <section class="cv-section" style="margin-top:3rem">
+    <h2>method</h2>
+    <div class="cv-section__body">
+      <p>
+        The forecast comes from <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a> for
+        the middle of your road: wind speed and direction at 10 m, the height weather models report.
+        Down on the road it blows a bit softer, so read the numbers as relative, not exact.
+      </p>
+      <p>
+        Each straight piece of the road gets its own tailwind: the wind speed times the cosine of
+        the angle between where the wind blows to and where you ride. The pieces are averaged by
+        length. A road that bends into the wind for half its length gets half the credit, where one
+        averaged direction would flatter it.
+      </p>
+      <p>
+        It grew out of a small script of mine that watches a few climbs and sprints and sends a
+        phone alert when a tailwind window is coming.
+      </p>
+      <p class="note">
+        Runs in your browser. Your road's midpoint goes to Open-Meteo for the forecast, map tiles
+        and place search come from OpenStreetMap, and nothing is stored. The road sits in this
+        page's address, so a link brings it back.
+      </p>
+    </div>
+  </section>
+</Base>
+
+<style is:global>
+  .tw-map {
+    height: min(60vh, 460px);
+    min-height: 300px;
+    margin-bottom: 32px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+  }
+  .tw-label { font-family: var(--font-mono); font-size: 13px; color: var(--fg-muted); }
+  .tw-road { margin: 0; font-family: var(--font-mono); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .tw-road .warn { color: var(--warm); }
+  .tw-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tw-buttons .btn { background: transparent; cursor: pointer; }
+  .tw-buttons .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .tw-chart { position: relative; }
+  .tw-chart svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+  .tw-night { fill: var(--line); fill-opacity: 0.45; }
+  .tw-bar--tail { fill: #3987e5; }
+  .tw-bar--head { fill: #e5484d; }
+  .tw-bar--on { stroke: var(--fg); stroke-width: 1.5; }
+  .tw-min { stroke: var(--fg-muted); stroke-width: 1; stroke-dasharray: 4 4; }
+  .tw-key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin: 0 4px 0 2px; vertical-align: -1px; }
+  .tw-key--tail { background: #3987e5; }
+  .tw-key--head { background: #e5484d; }
+  .tw-tip {
+    position: absolute;
+    pointer-events: none;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    font: 12px/1.5 var(--font-mono);
+    color: var(--fg-muted);
+    white-space: nowrap;
+    transform: translateX(-50%);
+    z-index: 1;
+  }
+  .tw-tip strong { color: var(--fg); font-size: 14px; }
+  .tw-table { margin-top: 24px; font-family: var(--font-mono); font-size: 13px; }
+  .tw-table summary { cursor: pointer; color: var(--accent); }
+  .tw-table__scroll { max-height: 320px; overflow: auto; margin-top: 12px; }
+  .tw-table table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  .tw-table th, .tw-table td { padding: 4px 10px 4px 0; text-align: right; border-bottom: 1px solid var(--line); }
+  .tw-table th:first-child, .tw-table td:first-child { text-align: left; }
+  .tw-table th { color: var(--fg-muted); font-weight: 400; position: sticky; top: 0; background: var(--bg); }
+  .leaflet-container { font-family: var(--font); }
+</style>
+
+<script>
+  import L from 'leaflet';
+  import 'leaflet/dist/leaflet.css';
+  import { compass, forecastUrl, hourly, summarise, windows } from '../../lib/tailwind.js';
+
+  const $ = (id) => document.getElementById(id);
+  const SVG = 'http://www.w3.org/2000/svg';
+  const HOUR = 3_600_000;
+  const DAY_START = 7;
+  const DAY_END = 21;
+
+  let pts = [];
+  let forecast = null;
+  let rows = [];
+  let active = -1;
+
+  // ---------------------------------------------------------------- map
+  const map = L.map('map').setView([50.85, 4.5], 9);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  }).addTo(map);
+  const draft = L.layerGroup().addTo(map);
+
+  function arrow(at, b) {
+    return L.marker(at, {
+      interactive: false,
+      icon: L.divIcon({
+        className: '',
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+        html: `<div style="color:#3987e5;font-size:18px;line-height:18px;text-align:center;transform:rotate(${b - 90}deg)">➤</div>`,
+      }),
+    });
+  }
+
+  function drawRoad() {
+    draft.clearLayers();
+    pts.forEach((p, i) =>
+      L.circleMarker(p, { radius: 5, color: i === 0 ? '#6fc4a0' : '#3987e5', fillOpacity: 1 }).addTo(draft),
+    );
+    $('undo').disabled = $('clear').disabled = !pts.length;
+    if (pts.length < 2) {
+      $('road').textContent = pts.length
+        ? 'One more click to set the direction.'
+        : 'Click the map along a road, in the direction you ride it.';
+      return;
+    }
+    L.polyline(pts, { color: '#3987e5', weight: 5 }).addTo(draft);
+    const s = summarise(pts);
+    // Mid-way along the last stretch, pointing the way that stretch is ridden.
+    const [a, b] = pts.slice(-2);
+    arrow([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], summarise([a, b]).bearing).addTo(draft);
+    $('road').textContent = `${s.bearing.toFixed(0)}° ${compass(s.bearing)} · ${(s.distance / 1000).toFixed(2)} km · ${pts.length} points`;
+    if (s.straightness < 0.8) {
+      const w = document.createElement('span');
+      w.className = 'warn';
+      w.textContent = ' · bends: scored piece by piece';
+      $('road').append(w);
+    }
+  }
+
+  // The road lives in the address (#r=lat,lon;lat,lon), so a link brings it back.
+  // A hash never reaches a server.
+  function saveHash() {
+    const r = pts.map((p) => `${p[0].toFixed(5)},${p[1].toFixed(5)}`).join(';');
+    history.replaceState(null, '', r ? `#r=${r}` : location.pathname);
+  }
+  function readHash() {
+    const m = location.hash.match(/^#r=([-\d.,;]+)$/);
+    if (!m) return [];
+    return m[1]
+      .split(';')
+      .map((p) => p.split(',').map(Number))
+      .filter((p) => p.length === 2 && p.every(Number.isFinite) && Math.abs(p[0]) <= 90 && Math.abs(p[1]) <= 180)
+      .slice(0, 200);
+  }
+
+  function changed() {
+    drawRoad();
+    saveHash();
+    schedule();
+  }
+
+  map.on('click', (e) => {
+    pts.push([e.latlng.lat, e.latlng.lng]);
+    changed();
+  });
+  $('undo').onclick = () => { pts.pop(); changed(); };
+  $('clear').onclick = () => { pts = []; changed(); };
+
+  $('find').addEventListener('keydown', async (e) => {
+    const q = e.target.value.trim();
+    if (e.key !== 'Enter' || !q) return;
+    e.preventDefault();
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`);
+      const [hit] = await res.json();
+      if (hit) {
+        map.setView([+hit.lat, +hit.lon], 14);
+        $('find-hint').textContent = hit.display_name;
+      } else {
+        $('find-hint').textContent = 'Nothing found by that name.';
+      }
+    } catch {
+      $('find-hint').textContent = 'Search failed: pan the map by hand.';
+    }
+  });
+
+  // ---------------------------------------------------------------- forecast
+  let timer = 0;
+  let asked = 0;
+  function schedule() {
+    clearTimeout(timer);
+    if (pts.length < 2) {
+      forecast = null;
+      rows = [];
+      render();
+      return;
+    }
+    timer = setTimeout(load, 400);
+  }
+
+  // Refetch only when the road's midpoint moves to another forecast cell.
+  let lastUrl = '';
+  async function load() {
+    const mid = pts[Math.floor(pts.length / 2)];
+    const url = forecastUrl(mid[0], mid[1]);
+    const ticket = ++asked;
+    try {
+      if (url !== lastUrl || !forecast) {
+        $('summary').textContent = 'Fetching the forecast…';
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Open-Meteo answered ${res.status}`);
+        const data = await res.json();
+        if (ticket !== asked) return; // a newer road was drawn meanwhile
+        forecast = data;
+        lastUrl = url;
+      }
+      rows = hourly(pts, forecast, Date.now());
+      render();
+    } catch (err) {
+      if (ticket !== asked) return;
+      forecast = null;
+      rows = [];
+      render();
+      $('summary').textContent = `No forecast right now (${err.message}). Try again in a moment.`;
+    }
+  }
+
+  // ---------------------------------------------------------------- output
+  const min = () => +$('min').value;
+  const fmt = (t, opts) => new Intl.DateTimeFormat('en-GB', { timeZone: forecast.timezone, ...opts }).format(t);
+  const clock = (t) => fmt(t, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const day = (t) => fmt(t, { weekday: 'short', day: 'numeric', month: 'short' });
+  const localHour = (t) => Number(fmt(t, { hour: 'numeric', hourCycle: 'h23' }));
+  const kmh = (v) => `${Math.round(v)} km/h`;
+
+  function render() {
+    $('min-out').textContent = kmh(min());
+    drawChart();
+    fillTable();
+    if (!rows.length) {
+      $('best').textContent = '–';
+      $('when').textContent = '–';
+      $('when-hint').textContent = '';
+      if (pts.length < 2) $('summary').textContent = 'Draw a road to see its forecast.';
+      return;
+    }
+
+    const daytime = rows.filter((r) => localHour(r.t) >= DAY_START && localHour(r.t) <= DAY_END);
+    const pool = daytime.length ? daytime : rows;
+    const top = pool.reduce((a, b) => (b.tail > a.tail ? b : a));
+    $('best').textContent = top.tail > 0 ? kmh(top.tail) : 'none';
+    $('when').textContent = top.tail > 0 ? `${day(top.t)} ${clock(top.t)}` : '–';
+    $('when-hint').textContent =
+      top.tail > 0 ? `${kmh(top.speed)} from ${compass(top.from)}, crosswind ${kmh(top.cross)}` : '';
+
+    const found = windows(daytime, min());
+    $('summary').textContent = found.length
+      ? `Daytime windows with at least ${kmh(min())} of tailwind: ` +
+        found
+          .map((w) => {
+            const peak = w.rows.reduce((a, b) => (b.tail > a.tail ? b : a));
+            return `${day(w.start)} ${clock(w.start)}–${clock(w.end)} (up to ${kmh(peak.tail)})`;
+          })
+          .join('; ') + '.'
+      : `No daytime hour (${DAY_START}:00–${DAY_END + 1}:00) reaches ${kmh(min())} of tailwind in the next three days.`;
+  }
+
+  function el(name, attrs, parent) {
+    const node = document.createElementNS(SVG, name);
+    for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
+    parent.append(node);
+    return node;
+  }
+
+  // Drawn at the width it is shown at (320-640), so labels stay 11px on a phone.
+  let W = 640;
+  const H = 260;
+  const M = { top: 12, right: 8, bottom: 30, left: 34 };
+  let geo = null;
+
+  function drawChart() {
+    const svg = $('chart');
+    W = Math.round(Math.min(640, Math.max(320, svg.getBoundingClientRect().width || 640)));
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.replaceChildren();
+    $('tip').hidden = true;
+    if (!rows.length) {
+      geo = null;
+      const t = el('text', { x: W / 2, y: H / 2, 'text-anchor': 'middle', class: 'fan__label' }, svg);
+      t.textContent = pts.length < 2 ? 'draw a road on the map' : '';
+      return;
+    }
+
+    const lo = Math.min(-10, ...rows.map((r) => r.tail));
+    const hi = Math.max(min() + 5, ...rows.map((r) => r.tail));
+    const step = hi - lo > 50 ? 20 : 10;
+    const y0 = Math.floor(lo / step) * step;
+    const y1 = Math.ceil(hi / step) * step;
+    const pw = W - M.left - M.right;
+    const ph = H - M.top - M.bottom;
+    const slot = pw / rows.length;
+    const x = (i) => M.left + i * slot;
+    const y = (v) => M.top + ((y1 - v) / (y1 - y0)) * ph;
+    geo = { slot, x };
+
+    // Night columns first, so everything else sits on top.
+    rows.forEach((r, i) => {
+      const h = localHour(r.t);
+      if (h < DAY_START || h > DAY_END) el('rect', { x: x(i), y: M.top, width: slot, height: ph, class: 'tw-night' }, svg);
+    });
+
+    for (let v = y0; v <= y1; v += step) {
+      el('line', { x1: M.left, x2: W - M.right, y1: y(v), y2: y(v), class: v === 0 ? 'fan__zero' : 'fan__grid' }, svg);
+      const t = el('text', { x: M.left - 6, y: y(v) + 4, 'text-anchor': 'end', class: 'fan__label' }, svg);
+      t.textContent = String(v);
+    }
+
+    // Day labels at each local midnight, and at the start when there is room
+    // before the first midnight's label.
+    const firstMidnight = rows.findIndex((r, i) => i > 0 && localHour(r.t) === 0);
+    rows.forEach((r, i) => {
+      if (i !== 0 && localHour(r.t) !== 0) return;
+      if (i !== 0) el('line', { x1: x(i), x2: x(i), y1: M.top, y2: H - M.bottom, class: 'fan__grid' }, svg);
+      if (i === 0 && firstMidnight > 0 && firstMidnight * slot < 80) return;
+      const t = el('text', { x: x(i) + 4, y: H - 10, class: 'fan__label' }, svg);
+      t.textContent = day(r.t);
+    });
+
+    const gap = Math.min(2, slot * 0.25);
+    rows.forEach((r, i) => {
+      const top = y(Math.max(0, r.tail));
+      const bottom = y(Math.min(0, r.tail));
+      el('rect', {
+        x: x(i) + gap / 2,
+        y: top,
+        width: Math.max(1, slot - gap),
+        height: Math.max(1, bottom - top),
+        rx: Math.min(2, (slot - gap) / 2),
+        class: `tw-bar ${r.tail >= 0 ? 'tw-bar--tail' : 'tw-bar--head'}${i === active ? ' tw-bar--on' : ''}`,
+      }, svg);
+    });
+
+    el('line', { x1: M.left, x2: W - M.right, y1: y(min()), y2: y(min()), class: 'tw-min' }, svg);
+    if (active >= 0 && active < rows.length) showTip(active);
+  }
+
+  function showTip(i) {
+    const r = rows[i];
+    const svg = $('chart');
+    const box = svg.getBoundingClientRect();
+    const scale = box.width / W;
+    const tip = $('tip');
+    tip.replaceChildren();
+    const value = document.createElement('strong');
+    value.textContent = `${r.tail >= 0 ? kmh(r.tail) + ' tailwind' : kmh(-r.tail) + ' headwind'}`;
+    tip.append(
+      value,
+      document.createElement('br'),
+      `${day(r.t)} ${clock(r.t)}`,
+      document.createElement('br'),
+      `wind ${kmh(r.speed)} from ${compass(r.from)} · gusts ${kmh(r.gust)}`,
+    );
+    const cx = (geo.x(i) + geo.slot / 2) * scale;
+    tip.style.left = `${Math.min(Math.max(cx, 110), box.width - 110)}px`;
+    tip.style.top = `${M.top * scale + 4}px`;
+    tip.hidden = false;
+  }
+
+  function pick(i) {
+    active = i;
+    drawChart();
+  }
+
+  $('chart').addEventListener('pointermove', (e) => {
+    if (!geo) return;
+    const box = $('chart').getBoundingClientRect();
+    const vx = ((e.clientX - box.left) / box.width) * W;
+    const i = Math.floor((vx - M.left) / geo.slot);
+    if (i >= 0 && i < rows.length && i !== active) pick(i);
+  });
+  $('chart').addEventListener('pointerleave', () => pick(-1));
+  $('chart').addEventListener('keydown', (e) => {
+    if (!rows.length) return;
+    if (e.key === 'ArrowRight') pick(Math.min(rows.length - 1, active + 1));
+    else if (e.key === 'ArrowLeft') pick(Math.max(0, active < 0 ? 0 : active - 1));
+    else return;
+    e.preventDefault();
+  });
+  $('chart').addEventListener('blur', () => pick(-1));
+
+  function fillTable() {
+    const body = $('rows');
+    body.replaceChildren();
+    for (const r of rows) {
+      const tr = document.createElement('tr');
+      for (const text of [
+        `${day(r.t)} ${clock(r.t)}`,
+        r.tail.toFixed(0),
+        r.cross.toFixed(0),
+        `${r.speed.toFixed(0)} ${compass(r.from)}`,
+        r.gust.toFixed(0),
+      ]) {
+        const td = document.createElement('td');
+        td.textContent = text;
+        tr.append(td);
+      }
+      body.append(tr);
+    }
+  }
+
+  $('min').addEventListener('input', render);
+  let lastWidth = 0;
+  new ResizeObserver(([entry]) => {
+    const w = Math.round(entry.contentRect.width);
+    if (Math.abs(w - lastWidth) > 8) { lastWidth = w; drawChart(); }
+  }).observe($('chart'));
+
+  // ---------------------------------------------------------------- start
+  pts = readHash();
+  if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 15 });
+  drawRoad();
+  schedule();
+  render();
+</script>
