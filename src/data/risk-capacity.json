@@ -1,0 +1,6 @@
+{
+ "min_horizon_jaren": 5.0,
+ "laag_stabiel_horizon_jaren": 10.0,
+ "ruim_horizon_jaren": 15.0,
+ "ruim_marge_pct": 0.1
+}

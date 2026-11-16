@@ -1,0 +1,14 @@
+---
+import Base from '../../layouts/Base.astro';
+import RiskProfile from '../../components/tools/RiskProfile.svelte';
+import { t } from '../../components/tools/risicoprofiel.nl.ts';
+---
+
+<Base title={t.title} description={t.description} wide lang="nl">
+  <div class="page-head">
+    <p class="prompt">./risicoprofiel --land be</p>
+    <h1>{t.title}</h1>
+    <p class="page-head__summary">{t.summary}</p>
+  </div>
+  <RiskProfile client:load />
+</Base>
