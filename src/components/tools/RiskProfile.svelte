@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import {
-    CAPACITIES, DREMPELS, GL_MAX, GL_MIN, capacityVerdict, equityRange, toleranceLevel, toleranceScore,
+    CAPACITIES, DREMPELS, GL_MAX, GL_MIN, SHORT_HORIZON_YEARS, adviceRange, capacityVerdict, equityRange,
+    toleranceLevel, toleranceScore,
     type Stability, type ToleranceLevel,
   } from '../../lib/riskprofile.ts';
   import Info from './Info.svelte';
@@ -54,17 +55,28 @@
     return t.result.heldBack(parts.join(' en '));
   });
 
-  const range = $derived(level !== null && capacity ? equityRange(level, capacity.verdict) : null);
+  // Selling all or part in a 30 % fall (the first behaviour question).
+  const sellsInFall = $derived(beh[0] === 0 || beh[0] === 1);
+  const advice = $derived(
+    level !== null && capacity && given(horizon)
+      ? adviceRange(level, capacity.verdict, { horizonYears: horizon, sellsInFall })
+      : null,
+  );
+  const range = $derived(advice?.range ?? null);
+  // What sets the range: the page's limits first, else the lower of the two.
   const decidedBy = $derived.by(() => {
-    if (level === null || !capacity || !range) return '';
-    if (equityRange(level, 'ruim')[1] > range[1]) return t.result.decidedBy.capacity;
-    if (equityRange(4, capacity.verdict)[1] > range[1]) return t.result.decidedBy.tolerance;
+    if (level === null || !capacity || !advice) return '';
+    // The short horizon says it all; the behaviour note stays below.
+    if (advice.limits.includes('kort')) return t.result.limits.kort(SHORT_HORIZON_YEARS);
+    if (advice.limits.includes('gedrag')) return t.result.limits.gedrag;
+    const base = equityRange(level, capacity.verdict);
+    if (equityRange(level, 'ruim')[1] > base[1]) return t.result.decidedBy.capacity;
+    if (equityRange(4, capacity.verdict)[1] > base[1]) return t.result.decidedBy.tolerance;
     return t.result.decidedBy.both;
   });
 
   const notes = $derived.by(() => {
     const out: string[] = [];
-    const sellsInFall = beh[0] === 0 || beh[0] === 1;
     if (sellsInFall && level !== null && level >= 3) out.push(t.behaviourNotes.mismatch);
     t.behaviour.forEach((item, i) => {
       if (item.note && beh[i] !== null && item.flag.includes(beh[i] as number)) out.push(item.note);
@@ -264,7 +276,11 @@
         </div>
         <div class="bar__axis" aria-hidden="true"><span>0 %</span><span>50 %</span><span>100 %</span></div>
         <p class="sub">{decidedBy}</p>
-        <p><a href="/tools/huren-of-kopen?mix={range[0]}">{t.result.rentbuy(range[0])}</a></p>
+        <p class="sub">{t.result.need}</p>
+        <p class="links">
+          <a href="/tools/pensioen?mix={range[0]}">{t.result.pension(range[0])}</a>
+          <a href="/tools/huren-of-kopen?mix={range[0]}">{t.result.rentbuy(range[0])}</a>
+        </p>
       {:else}
         <p class="pending">{t.result.mixPending}</p>
       {/if}
@@ -425,6 +441,7 @@
   .bar span { position: absolute; top: -1px; bottom: -1px; border-radius: 5px; background: var(--accent); }
   .bar__axis { display: flex; justify-content: space-between; margin-top: 4px; font: 11px var(--font-mono); color: var(--fg-muted); }
 
+  .links { display: flex; flex-direction: column; gap: 6px; }
   .grid { width: 100%; border-collapse: separate; border-spacing: 3px; font-size: 13px; }
   .grid th, .grid td { border: 0; padding: 0; }
   .grid th { font: 400 12px var(--font-mono); color: var(--fg-muted); vertical-align: middle; }

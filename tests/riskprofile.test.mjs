@@ -51,3 +51,17 @@ test('the equity range is 20 points wide, rises with both, and capacity caps it'
   assert.deepEqual(equityRange(4, 'beperkt'), [20, 40]);
   assert.deepEqual(equityRange(0, 'ruim'), [0, 20]);
 });
+
+test('the page limits: a short horizon and selling in a fall', async () => {
+  const { adviceRange } = await import('../src/lib/riskprofile.ts');
+  const plain = { horizonYears: 20, sellsInFall: false };
+  assert.deepEqual(adviceRange(4, 'ruim', plain), { range: [80, 100], limits: [] });
+  // Selling in a fall: one band lower, never below 0-20.
+  assert.deepEqual(adviceRange(4, 'ruim', { ...plain, sellsInFall: true }), { range: [60, 80], limits: ['gedrag'] });
+  assert.deepEqual(adviceRange(0, 'ruim', { ...plain, sellsInFall: true }), { range: [0, 20], limits: [] });
+  // Money needed within 3 years: 0-20 %, whatever the rest says.
+  assert.deepEqual(adviceRange(4, 'beperkt', { horizonYears: 2, sellsInFall: false }), { range: [0, 20], limits: ['kort'] });
+  assert.deepEqual(adviceRange(4, 'beperkt', { horizonYears: 3, sellsInFall: false }), { range: [20, 40], limits: [] });
+  assert.deepEqual(adviceRange(3, 'beperkt', { horizonYears: 1, sellsInFall: true }), { range: [0, 20], limits: ['kort', 'gedrag'] });
+  assert.deepEqual(adviceRange(0, 'beperkt', { horizonYears: 1, sellsInFall: false }), { range: [0, 20], limits: [] });
+});

@@ -115,7 +115,7 @@ export const t = {
       q: 'Uw beleggingen verliezen in enkele maanden 30 % van hun waarde. Wat doet u?',
       a: ['Alles verkopen', 'Een deel verkopen', 'Niets', 'Bijkopen'],
       flag: [0, 1],
-      note: 'Verkopen in een daling maakt van een tijdelijk verlies een definitief verlies. Kies een mix waarbij u zo\'n daling kunt uitzitten, ook als de vragenlijst meer toelaat.',
+      note: 'Verkopen in een daling maakt van een tijdelijk verlies een definitief verlies. Daarom staat de mix een band lager: kies er een waarbij u zo\'n daling kunt uitzitten.',
     },
     {
       q: 'Hoe vaak bekijkt u de waarde van uw beleggingen?',
@@ -139,7 +139,7 @@ export const t = {
   behaviourNotes: {
     soldBefore: 'U verkocht al eens met verlies in een daling. Wat u toen deed zegt meer dan wat u nu antwoordt; neem dat mee in uw keuze.',
     untested: 'U hebt nog geen grote daling meegemaakt. De vragenlijst meet dan wat u denkt te zullen doen; begin gerust aan de voorzichtige kant van de vork.',
-    mismatch: 'Uw antwoorden op de vragenlijst wijzen op een hoge tolerantie, maar bij een daling van 30 % zou u verkopen. Ga dan uit van het gedrag.',
+    mismatch: 'Uw antwoorden op de vragenlijst wijzen op een hoge tolerantie, maar bij een daling van 30 % zou u verkopen. Wat u doet weegt zwaarder dan wat u denkt.',
     none: 'Uw antwoorden wijzen niet op een van de klassieke valkuilen.',
     title: 'Aandachtspunten in uw gedrag',
   },
@@ -185,6 +185,13 @@ export const t = {
     gridTitle: 'Tolerantie tegenover capaciteit',
     gridLabel: 'Tabel met het aandeel aandelen voor elke combinatie van risicotolerantie en risicocapaciteit; uw combinatie is gemarkeerd.',
     gridCell: (lo: number, hi: number) => `${lo}–${hi} %`,
+    limits: {
+      kort: (years: number) =>
+        `U hebt het geld binnen ${years} jaar nodig. Dan hoort het nauwelijks in aandelen, wat de rest van de test ook zegt.`,
+      gedrag: 'Eén band lager dan tolerantie en capaciteit samen toelaten, omdat u bij een daling van 30 % zou verkopen.',
+    },
+    need: 'Een derde vraag is hoeveel risico u nodig hebt. Haalt u uw doel ook met minder aandelen, dan hoeft u niet meer risico te nemen dan dat.',
+    pension: (pct: number) => `Reken uw pensioen door met ${pct} % aandelen`,
     rentbuy: (pct: number) => `Reken huren of kopen door met ${pct} % aandelen`,
     reset: 'Opnieuw beginnen',
     copy: 'Kopieer link',
@@ -197,7 +204,7 @@ export const t = {
       'De 13 vragen over risicotolerantie zijn een vertaling van de schaal van Grable en Lytton (1999), "Financial risk tolerance revisited: the development of a risk assessment instrument", Financial Services Review 8, 163–181. De bedragen staan in euro en de producten kregen hun Belgische naam. De Engelse schaal is gevalideerd; deze vertaling is dat niet.',
       'De vier vragen over gedrag zijn van mezelf en tellen niet mee in de score.',
       'De capaciteit volgt de regel uit mijn planningsmotor: beperkt bij een horizon onder 5 jaar, lasten boven het inkomen, of een onzeker inkomen met een horizon onder 10 jaar. Ruim vraagt minstens 15 jaar, een voldoende zeker inkomen en een marge van minstens 10 % van het inkomen.',
-      'De mix is een afspraak van deze pagina: elk niveau van tolerantie staat voor een vork van 20 procentpunten aandelen, en de capaciteit legt er een plafond op (40 % bij beperkt, 80 % bij gemiddeld).',
+      'De mix is een afspraak van deze pagina: elk niveau van tolerantie staat voor een vork van 20 procentpunten aandelen, en de capaciteit legt er een plafond op (40 % bij beperkt, 80 % bij gemiddeld). Twee regels komen erbovenop: wie het geld binnen 3 jaar nodig heeft, krijgt hoogstens 20 %, en wie bij een daling van 30 % zou verkopen, krijgt een band minder.',
       'Uw antwoorden blijven in uw browser; er gaat niets naar een server. De adresbalk houdt uw antwoorden bij, zodat ze een herladen overleven. Uw inkomen en vaste lasten komen alleen in de link als u op Kopieer link klikt.',
     ],
     disclaimer: 'Algemene informatie, geen persoonlijk advies. De test noemt geen producten en vervangt geen gesprek met een adviseur.',

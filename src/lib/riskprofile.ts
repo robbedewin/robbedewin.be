@@ -92,3 +92,28 @@ export function equityRange(level: ToleranceLevel, capacity: Capacity): [number,
   const cap = CEILING[capacity];
   return [Math.min(level * 20, cap - 20), Math.min(level * 20 + 20, cap)];
 }
+
+// ── The page's own limits on top ───────────────────────────────────────
+// Two more conventions of this page. Money needed within 3 years should not
+// depend on the stock market, whatever else the answers say. And someone who
+// would sell in a 30 % fall gets one band less: selling in a fall turns a
+// temporary loss into a final one, so the mix should be one they can sit out.
+export const SHORT_HORIZON_YEARS = 3;
+export type RangeLimit = 'kort' | 'gedrag';
+
+/** The range of equities after the page's limits, and which of them lowered it. */
+export function adviceRange(
+  level: ToleranceLevel,
+  capacity: Capacity,
+  opts: { horizonYears: number; sellsInFall: boolean },
+): { range: [number, number]; limits: RangeLimit[] } {
+  const base = equityRange(level, capacity);
+  const limits: RangeLimit[] = [];
+  const short = opts.horizonYears < SHORT_HORIZON_YEARS;
+  if (short && base[1] > 20) limits.push('kort');
+  if (opts.sellsInFall && base[1] > 20) limits.push('gedrag');
+  const range: [number, number] = short
+    ? [0, Math.min(base[1], 20)]
+    : opts.sellsInFall && base[1] > 20 ? [Math.max(base[0] - 20, 0), base[1] - 20] : base;
+  return { range, limits };
+}
