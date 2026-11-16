@@ -1,0 +1,14 @@
+---
+import Base from '../../layouts/Base.astro';
+import RentBuy from '../../components/tools/RentBuy.svelte';
+import { t } from '../../components/tools/huren-of-kopen.nl.ts';
+---
+
+<Base title={t.title} description={t.description} wide lang="nl">
+  <div class="page-head">
+    <p class="prompt">./huren-of-kopen --land be</p>
+    <h1>{t.title}</h1>
+    <p class="page-head__summary">{t.summary}</p>
+  </div>
+  <RentBuy client:load />
+</Base>

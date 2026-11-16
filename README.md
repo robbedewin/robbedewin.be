@@ -1,6 +1,7 @@
 # robbedewin.be
 
-Personal website — about, projects, CV. Static, no client-side JavaScript.
+Personal website — about, projects, CV, and a few calculators under `/tools`.
+Static pages; the tools run in the browser and send nothing to a server.
 
 Built with [Astro](https://astro.build). Deployed to Cloudflare Pages.
 
@@ -22,6 +23,22 @@ src/layouts/Base.astro  <head>, nav, footer
 src/styles/global.css   design tokens and all styling
 public/                 static assets served as-is
 ```
+
+## Tools
+
+The calculators under `/tools` are ports of the Python engines in the private
+`financial_report` repo. Each port is tested against numbers the Python
+produced (`tests/fixtures/`), so `npm test` fails when the two drift apart.
+
+- `src/lib/` holds the engines as pure functions; `src/lib/be/` is the Belgian
+  set (TypeScript, run by `node --test` directly).
+- `src/components/tools/` holds the Svelte components of the larger
+  calculators, with their text in one `*.nl.ts` file per page. Those pages are
+  Dutch and pass `wide lang="nl"` to `Base.astro` to use the full screen width.
+- `tools/export_*.py` regenerate the constants in `src/data/` and the
+  reference cases. Run them with the `financial_report` venv after a rate
+  changes there. They export statutory figures and made-up scenarios only.
+
 
 ## Adding a project
 

@@ -138,6 +138,12 @@ img { max-width: 100%; height: auto; }
 }
 main.wrap { padding-bottom: 6rem; }
 
+/* Calculator pages (Base wide) use the whole screen; the cap only stops the
+   layout from stretching on very large monitors. */
+body.wide { --wide: 1920px; }
+body.wide .page-head { padding: 40px 0 28px; }
+body.wide .page-head h1 { font-size: clamp(2rem, 4vw, 2.75rem); }
+
 /* Long-form pages (project write-ups) keep a readable line length. */
 .prose { max-width: var(--measure); }
 

@@ -1,0 +1,57 @@
+{
+ "last_verified": "2026-11-02",
+ "registratierechten": {
+  "VL": {
+   "enige_eigen_woning": 0.02,
+   "standaard": 0.12,
+   "vermindering_bescheiden_woning": {
+    "bedrag_eur": 1867,
+    "max_grondslag_eur": 220000,
+    "max_grondslag_kernstad_eur": 240000
+   }
+  },
+  "WA": {
+   "enige_eigen_woning": 0.03,
+   "standaard": 0.125
+  },
+  "BR": {
+   "standaard": 0.125,
+   "abattement_eur": 200000,
+   "abattement_max_grondslag_eur": 600000
+  }
+ },
+ "notaris": {
+  "schijven": [
+   [
+    7500.0,
+    0.0456
+   ],
+   [
+    17500.0,
+    0.0298
+   ],
+   [
+    30000.0,
+    0.0199
+   ],
+   [
+    45495.0,
+    0.0157
+   ],
+   [
+    64095.0,
+    0.0113
+   ],
+   [
+    250095.0,
+    0.0079
+   ],
+   [
+    null,
+    0.0057
+   ]
+  ],
+  "vaste_kosten_eur": 1500.0,
+  "btw": 0.21
+ }
+}

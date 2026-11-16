@@ -1,0 +1,7 @@
+{
+ "source": "Dimson, Marsh & Staunton, UBS Global Investment Returns Yearbook 2024",
+ "period": "1900-2024",
+ "equity_real": 0.05,
+ "bond_real": 0.017,
+ "inflation": 0.02
+}

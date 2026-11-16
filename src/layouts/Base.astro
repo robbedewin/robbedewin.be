@@ -6,14 +6,18 @@ interface Props {
   title: string;
   description: string;
   noindex?: boolean;
+  /** Calculator pages use the whole screen width, header and footer included. */
+  wide?: boolean;
+  /** The site is English; the Belgian calculators are Dutch. */
+  lang?: string;
 }
-const { title, description, noindex = false } = Astro.props;
+const { title, description, noindex = false, wide = false, lang = 'en' } = Astro.props;
 const fullTitle = title === 'Robbe De Win' ? title : `${title} — Robbe De Win`;
 const canonical = new URL(Astro.url.pathname.replace(/\/$/, '') || '/', Astro.site);
 const year = new Date().getFullYear();
 ---
 
-<html lang="en">
+<html lang={lang}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -32,7 +36,7 @@ const year = new Date().getFullYear();
     <meta name="twitter:card" content="summary" />
     <meta name="generator" content={Astro.generator} />
   </head>
-  <body>
+  <body class:list={{ wide }}>
     <a class="skip" href="#main">Skip to content</a>
     <Nav />
     <main id="main" class="wrap">
