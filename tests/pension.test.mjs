@@ -138,3 +138,12 @@ test('the sustainable spending just lasts, and one percent more does not', () =>
   assert.equal(projectRetirement({ ...inp, spendingMonthly: max }).depletionAge, null);
   assert.notEqual(projectRetirement({ ...inp, spendingMonthly: max * 1.01 }).depletionAge, null);
 });
+
+test('wealth at retirement counts the levies still due', () => {
+  // Retire at 58: pension savings still owe the 8 % levy, the second pillar its
+  // payout levies; the free portfolio is counted in full.
+  const inp = { ...plan, age: 57, retireAge: 58, pensionAge: 67, endAge: 59, pillar2: 100000, pensionSavings: 20000, portfolio: 50000 };
+  const res = projectRetirement(inp);
+  const net = 50000 + 100000 * (1 - leviesPillar2(67, false, 67)) + 20000 * (1 - PENSION_CONSTANTS.pensioensparen.heffing_op_60);
+  close(res.wealthAtRetirement, net, 'net wealth at 58');
+});

@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { legalPensionAge, leviesPillar2, PENSION_CONSTANTS } from '../../lib/be/pensiontax.ts';
   import { projectRetirement, sustainableSpending, type RetirementInputs } from '../../lib/be/retirement.ts';
+  import { deviationPaths, simulateRetirement, sustainableSpendingMc } from '../../lib/be/retirement-mc.ts';
   import Info from './Info.svelte';
   import LineChart from './LineChart.svelte';
   import NumField from './NumField.svelte';
@@ -25,7 +26,6 @@
     aandelen: null as number | null,
     obligaties: null as number | null,
     kosten: DEFAULT_FEE_PCT,
-    voorzichtig: 2,
     inflatie: 2,
     reeel: true,
     wettelijk: 1800,
@@ -73,7 +73,6 @@
       num(s.kosten, 0, 5),
     );
   });
-  const cautiousPts = $derived(num(s.voorzichtig, 0, 10));
 
   const inputs = $derived<RetirementInputs>({
     age,
@@ -98,16 +97,29 @@
     tob: num(s.tob, 0, 5) / 100,
   });
   const res = $derived(projectRetirement(inputs));
-  // The same plan with less return on what is invested in markets; the
-  // second pillar keeps its own rate.
-  const cautious = $derived(
-    projectRetirement({
-      ...inputs,
-      portfolioReturn: inputs.portfolioReturn - cautiousPts / 100,
-      pensionSavingsReturn: inputs.pensionSavingsReturn - cautiousPts / 100,
-    }),
-  );
   const sustainable = $derived(sustainableSpending(inputs));
+
+  // A thousand futures (src/lib/be/retirement-mc.ts). They take a few tenths
+  // of a second, so they run once the inputs have been still for a moment;
+  // until then the page shows the last result.
+  const PATHS = 1000;
+  const equityShare = $derived(Number((MIXES as readonly string[]).includes(s.mix) ? s.mix : DEFAULT_MIX) / 100);
+  let mc = $state<{ success: number; safe: number; p10: Float64Array; p90: Float64Array } | null>(null);
+  $effect(() => {
+    const inp = inputs;
+    const share = equityShare;
+    const timer = setTimeout(() => {
+      const opts = { equityShare: share, paths: PATHS };
+      const dev = deviationPaths(share, inp.endAge - inp.age, PATHS);
+      const sim = simulateRetirement(inp, opts, dev);
+      mc = { success: sim.success, safe: sustainableSpendingMc(inp, opts, 0.9, dev), p10: sim.p10, p90: sim.p90 };
+    }, 150);
+    return () => clearTimeout(timer);
+  });
+
+  // The last result's band, while it still fits the projection (a changed
+  // age changes the number of years until the futures have run again).
+  const band = $derived(mc && mc.p10.length === res.rows.length ? mc : null);
 
   // The engine works in the euros of each year. In today's euros a balance
   // is divided by the price level at the end of its year, a flow by the level
@@ -119,7 +131,8 @@
       return {
         age: r.age,
         total: r.total * b,
-        cautious: cautious.rows[i].total * b,
+        p10: (band ? band.p10[i] : 0) * b,
+        p90: (band ? band.p90[i] : 0) * b,
         portfolio: r.portfolio * b,
         pillar2: r.pillar2 * b,
         pensionSavings: r.pensionSavings * b,
@@ -156,12 +169,14 @@
 
   const verdictText = $derived.by(() => {
     const spending = eur(inputs.spendingMonthly);
-    const parts = [
-      res.depletionAge === null
-        ? t.verdict.lasts(spending, endAge, eur(last.total))
-        : t.verdict.runsOut(spending, res.depletionAge),
-      t.verdict.sustainable(eur(sustainable), endAge),
-    ];
+    const parts = mc
+      ? [t.verdict.chance(spending, endAge, pct(mc.success, 0)), t.verdict.safe(eur(mc.safe), eur(sustainable))]
+      : [
+          res.depletionAge === null
+            ? t.verdict.lasts(spending, endAge, eur(last.total))
+            : t.verdict.runsOut(spending, res.depletionAge),
+          t.verdict.sustainable(eur(sustainable), endAge),
+        ];
     if (retireAge < pensionAge) parts.push(t.verdict.gap(retireAge, pensionAge));
     return parts.join(' ');
   });
@@ -216,22 +231,22 @@
       <div>
         <dt>{t.tiles.atRetirement(retireAge)}</dt>
         <dd>{eur(atRetirement)}</dd>
-        <dd class="sub">{unitNote}</dd>
+        <dd class="sub">{t.tiles.atRetirementSub(unitNote)}</dd>
       </div>
       <div>
-        <dt>{t.tiles.lasts}</dt>
-        <dd class="accent">{res.depletionAge === null ? t.tiles.lastsBeyond(endAge) : t.tiles.lastsAge(res.depletionAge)}</dd>
-        <dd class="sub">{t.tiles.lastsSub(eur(inputs.spendingMonthly))}</dd>
+        <dt>{t.tiles.chance(endAge)}</dt>
+        <dd class="accent">{mc ? pct(mc.success, 0) : t.tiles.pending}</dd>
+        <dd class="sub">{t.tiles.chanceSub(eur(inputs.spendingMonthly))}</dd>
       </div>
       <div>
-        <dt>{t.tiles.sustainable}</dt>
-        <dd>{eur(sustainable)}</dd>
-        <dd class="sub">{t.tiles.sustainableSub(endAge)}</dd>
+        <dt>{t.tiles.safe}</dt>
+        <dd>{mc ? eur(mc.safe) : t.tiles.pending}</dd>
+        <dd class="sub">{t.tiles.safeSub(endAge)}</dd>
       </div>
       <div>
         <dt>{t.tiles.atEnd(endAge)}</dt>
         <dd>{eur(last.total)}</dd>
-        <dd class="sub">{unitNote}</dd>
+        <dd class="sub">{t.tiles.atEndSub(unitNote)}</dd>
       </div>
     </dl>
 
@@ -254,10 +269,8 @@
         {#if tab === 'vermogen'}
           <LineChart
             years={ages}
-            series={[
-              { label: t.chart.expected, values: rows.map((r) => r.total), tone: 'a' },
-              { label: t.chart.cautious(`${String(cautiousPts).replace('.', ',')} punt`), values: rows.map((r) => r.cautious), tone: 'b' },
-            ]}
+            series={[{ label: t.chart.expected, values: rows.map((r) => r.total), tone: 'a' }]}
+            band={band ? { label: t.chart.band, lo: rows.map((r) => r.p10), hi: rows.map((r) => r.p90) } : null}
             label={t.chart.vermogenLabel}
             hint={t.chart.hint}
             format={eur}
@@ -423,7 +436,6 @@
         inflationPct={inflation * 100}
         mixInfo={t.fields.mixInfo}
       />
-      <NumField id="voorzichtig" label={t.fields.cautious} bind:value={s.voorzichtig} unit="%" step={0.5} max={10} info={t.fields.cautiousInfo} />
       <NumField id="inflatie" label={t.fields.inflation} bind:value={s.inflatie} unit="%" step={0.1} info={t.fields.inflationInfo} />
       <label class="check" for="reeel">
         <input id="reeel" type="checkbox" bind:checked={s.reeel} />

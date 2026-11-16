@@ -2,7 +2,8 @@
   // A small line chart in the site's own style: up to three series, each
   // with its own colour and its own dash pattern, so they differ without
   // colour too. The legend above the plot shows the values of the chosen year
-  // (pointer, touch or arrow keys); it starts at the last year.
+  // (pointer, touch or arrow keys); it starts at the last year. An optional
+  // band (a range, such as the 10th to 90th percentile) is shaded behind them.
   interface Series {
     label: string;
     values: number[];
@@ -17,6 +18,7 @@
     formatShort,
     yearLabel,
     marker = null,
+    band = null,
   }: {
     series: Series[];
     years: number[];
@@ -26,9 +28,11 @@
     formatShort: (v: number) => string;
     yearLabel: (y: number) => string;
     marker?: { year: number; label: string } | null;
+    band?: { label: string; lo: number[]; hi: number[] } | null;
   } = $props();
 
   let width = $state(720);
+  const uid = $props.id();
   let hover = $state<number | null>(null);
 
   const L = 84, R = 16, T = 16, B = 32;
@@ -38,7 +42,11 @@
   const H = $derived(Math.round(Math.min(Math.max(W * 0.42, 240), 460)));
 
   const scale = $derived.by(() => {
-    const all = series.flatMap((s) => s.values);
+    // A band's upper edge can run far above the lines (the best futures over
+    // decades); the axis stops at twice the lines' top and the band is clipped.
+    const lines = series.flatMap((s) => s.values);
+    const top = Math.max(1, ...lines);
+    const all = [...lines, ...(band ? [...band.lo, ...band.hi.map((v) => Math.min(v, 2 * top))] : [])];
     const min = Math.min(0, ...all);
     const max = Math.max(1, ...all);
     const rough = (max - min) / 4;
@@ -56,6 +64,8 @@
   const y = (v: number) => T + (1 - (v - scale.lo) / (scale.hi - scale.lo)) * (H - T - B);
   const path = (values: number[]) =>
     values.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
+  const area = (lo: number[], hi: number[]) =>
+    `${path(hi)}${lo.map((_, j) => { const i = lo.length - 1 - j; return `L${x(i).toFixed(1)},${y(lo[i]).toFixed(1)}`; }).join('')}Z`;
 
   function pick(e: PointerEvent) {
     const rect = (e.currentTarget as SVGElement).getBoundingClientRect();
@@ -74,6 +84,13 @@
 <figure class="chart">
   <figcaption class="legend">
     <span class="legend__year">{yearLabel(years[idx])}</span>
+    {#if band}
+      <span class="legend__item">
+        <span class="swatch swatch--band"></span>
+        {band.label}
+        <strong>{format(band.lo[idx])} – {format(band.hi[idx])}</strong>
+      </span>
+    {/if}
     {#each series as s}
       <span class="legend__item">
         <span class="swatch swatch--{s.tone}"></span>
@@ -117,6 +134,10 @@
           text-anchor={right ? 'start' : 'end'}
         >{marker.label}</text>
       {/if}
+      {#if band}
+        <clipPath id="{uid}-plot"><rect x={L} y={T} width={W - L - R} height={H - T - B} /></clipPath>
+        <path class="band" d={area(band.lo, band.hi)} clip-path="url(#{uid}-plot)" />
+      {/if}
       <line class="guide" x1={x(idx)} x2={x(idx)} y1={T} y2={H - B} />
       {#each series as s}
         <path class="line line--{s.tone}" d={path(s.values)} />
@@ -143,6 +164,8 @@
   .legend strong { color: var(--fg); font-weight: 500; font-variant-numeric: tabular-nums; }
   .swatch { width: 22px; height: 0; border-top: 2px solid var(--accent); flex: none; }
   .swatch--b { border-color: var(--warm); border-top-style: dashed; }
+  .swatch--band { height: 10px; border: 0; background: color-mix(in srgb, var(--accent) 22%, transparent); }
+  .band { fill: color-mix(in srgb, var(--accent) 16%, transparent); stroke: none; }
   .swatch--c { border-color: var(--green); border-top-style: dotted; border-top-width: 3px; }
   svg { display: block; width: 100%; height: auto; touch-action: pan-y; cursor: crosshair; }
   .grid { stroke: var(--line); stroke-width: 1; }

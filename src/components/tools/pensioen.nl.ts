@@ -8,18 +8,22 @@ export const t = {
 
   tiles: {
     atRetirement: (age: number) => `Vermogen op ${age}`,
-    atRetirementSub: 'vrij vermogen, tweede pijler en pensioensparen samen',
-    lasts: 'Het geld reikt tot',
-    lastsAge: (age: number) => `${age} jaar`,
-    lastsBeyond: (age: number) => `na ${age} jaar`,
-    lastsSub: (spending: string) => `bij ${spending} per maand`,
-    sustainable: 'Haalbare uitgaven',
-    sustainableSub: (age: number) => `per maand, tot ${age} jaar`,
+    atRetirementSub: (unit: string) => `${unit}, na de heffingen op tweede pijler en pensioensparen`,
+    chance: (age: number) => `Kans dat het geld reikt tot ${age}`,
+    chanceSub: (spending: string) => `bij ${spending} per maand`,
+    safe: 'Haalbaar in 9 van de 10 toekomsten',
+    safeSub: (age: number) => `per maand, tot ${age} jaar`,
     atEnd: (age: number) => `Vermogen op ${age}`,
+    atEndSub: (unit: string) => `${unit}, bij het verwachte rendement`,
+    pending: '…',
     real: 'in euro van vandaag',
     nominal: 'in euro van dat jaar',
   },
   verdict: {
+    chance: (spending: string, end: number, chance: string) =>
+      `Met ${spending} per maand reikt het geld tot ${end} jaar in ${chance} van de toekomsten.`,
+    safe: (amount: string, expected: string) =>
+      `In 9 van de 10 toekomsten is ${amount} per maand haalbaar; met elk jaar precies het verwachte rendement zou dat ${expected} zijn.`,
     lasts: (spending: string, end: number, left: string) =>
       `Met ${spending} per maand houdt u op ${end} jaar nog ${left} over.`,
     runsOut: (spending: string, age: number) =>
@@ -32,8 +36,8 @@ export const t = {
   tabs: { vermogen: 'Vermogen', opbouw: 'Per pot', inkomen: 'Inkomen', belasting: 'Belasting', tabel: 'Tabel' },
   chart: {
     age: (a: number) => `${a} jaar`,
-    expected: 'Verwacht',
-    cautious: (points: string) => `Met ${points} minder rendement`,
+    expected: 'Verwacht rendement',
+    band: '8 van de 10 toekomsten',
     portfolio: 'Vrij vermogen',
     pillar2: 'Tweede pijler',
     pensionSavings: 'Pensioensparen',
@@ -41,7 +45,7 @@ export const t = {
     statePension: 'Wettelijk pensioen',
     withdrawal: 'Uit vermogen',
     retire: 'stopt met werken',
-    vermogenLabel: 'Totaal vermogen per leeftijd, verwacht en met minder rendement',
+    vermogenLabel: 'Totaal vermogen per leeftijd bij het verwachte rendement, met de band waarbinnen 8 van de 10 toekomsten vallen',
     opbouwLabel: 'Vrij vermogen, tweede pijler en pensioensparen per leeftijd',
     inkomenLabel: 'Uitgaven, wettelijk pensioen en opname uit vermogen per leeftijd',
     hint: 'Beweeg over de grafiek, of gebruik de pijltjestoetsen, om een leeftijd te kiezen.',
@@ -98,8 +102,6 @@ export const t = {
     saving: 'Sparen per maand',
     savingInfo: 'In euro van vandaag; het bedrag stijgt mee met de inflatie tot u stopt met werken.',
     mixInfo: 'De verdeling van het vrije vermogen, voor en na het pensioen dezelfde.',
-    cautious: 'Voorzichtig scenario',
-    cautiousInfo: 'Hoeveel procentpunt rendement er in het voorzichtige scenario elk jaar af gaat. Het toont hoe gevoelig het plan is; het is geen voorspelling.',
     inflation: 'Inflatie',
     inflationInfo: 'Sparen, uitgaven, wettelijk pensioen en de belastinggrenzen stijgen elk jaar met dit percentage.',
     real: 'Toon bedragen in euro van vandaag',
@@ -133,7 +135,8 @@ export const t = {
     title: 'Over dit model',
     how: 'Het model loopt jaar per jaar. Zolang u werkt, groeien drie potten: uw vrije vermogen, de tweede pijler en het pensioensparen. Daarna betaalt het vrije vermogen wat het wettelijk pensioen niet dekt.',
     items: [
-      'Elk jaar verloopt zoals verwacht: één vast rendement per pot. Echte jaren schommelen, en een slechte reeks vlak na uw pensioen weegt zwaarder dan het gemiddelde laat zien.',
+      'De kansen komen uit duizend toekomsten voor het vrije vermogen. Elke toekomst herschikt de jaarlijkse schommelingen van Amerikaanse aandelen en obligaties sinds 1928 (Damodaran) in blokken van gemiddeld 5 jaar, rond het rendement dat u invult. Slechte reeksen jaren blijven zo samen, ook vlak na uw pensioen. Inflatie, de tweede pijler en het pensioensparen volgen elk één vast cijfer.',
+      'De tabbladen Per pot, Inkomen, Belasting en Tabel tonen de toekomst met elk jaar precies het verwachte rendement.',
       'Het model is voor één persoon. Een partner, een eigen woning, een erfenis of zorgkosten zitten er niet in.',
       'Het wettelijk pensioen is het bedrag dat u invult. Het model rekent geen loopbaan door.',
       'De tweede pijler keert uit als kapitaal wanneer het wettelijk pensioen start, en wordt dan mee belegd. Een opname vóór 60 jaar en een uitkering als rente zijn niet gemodelleerd.',

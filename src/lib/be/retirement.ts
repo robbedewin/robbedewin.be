@@ -31,6 +31,9 @@ export interface RetirementInputs {
   portfolioBasis?: number;
   monthlySaving: number;
   portfolioReturn: number;
+  /** One nominal return per year of the projection, in place of
+   *  `portfolioReturn` (a Monte Carlo path). */
+  portfolioReturns?: ArrayLike<number>;
 
   /** Net statutory pension per month. */
   statePensionMonthly: number;
@@ -79,7 +82,8 @@ export interface RetirementRow {
 
 export interface RetirementResult {
   rows: RetirementRow[];
-  /** Everything owned on the day work stops, in the euros of that day. */
+  /** Everything owned on the day work stops, in the euros of that day: the
+   *  second pillar and pension savings counted after the levies still due. */
   wealthAtRetirement: number;
   /** The price level on that day. */
   priceAtRetirement: number;
@@ -110,7 +114,13 @@ export function projectRetirement(inp: RetirementInputs): RetirementResult {
   let levyPaid = inp.age > LEVY_AGE;
   let released = false;
   let depletionAge: number | null = null;
-  let wealthAtRetirement = portfolio + pillar2 + pensionSavings;
+  const legalAge = inp.legalPensionAge ?? inp.pensionAge;
+  // What the pots are worth after the levies they will still carry.
+  const netWorth = () =>
+    portfolio +
+    pillar2 * (pillar2Paid ? 1 : 1 - leviesPillar2(Math.max(inp.pensionAge, 60), retireAge >= legalAge, legalAge)) +
+    pensionSavings * (levyPaid ? 1 : 1 - PENSION_CONSTANTS.pensioensparen.heffing_op_60);
+  let wealthAtRetirement = netWorth();
   let priceAtRetirement = 1;
   const rows: RetirementRow[] = [];
 
@@ -125,7 +135,7 @@ export function projectRetirement(inp: RetirementInputs): RetirementResult {
     const price = (1 + inp.inflation) ** (age - inp.age);
     const working = age < retireAge;
     if (age === retireAge) {
-      wealthAtRetirement = portfolio + pillar2 + pensionSavings;
+      wealthAtRetirement = netWorth();
       priceAtRetirement = price;
     }
     const row: RetirementRow = {
@@ -148,7 +158,6 @@ export function projectRetirement(inp: RetirementInputs): RetirementResult {
     }
     // The second pillar pays out when the statutory pension starts.
     if (!pillar2Paid && age >= inp.pensionAge) {
-      const legalAge = inp.legalPensionAge ?? inp.pensionAge;
       const levies = leviesPillar2(Math.max(age, 60), retireAge >= legalAge, legalAge);
       row.pillar2Levies = pillar2 * levies;
       row.pillar2Payout = pillar2 - row.pillar2Levies;
@@ -199,7 +208,7 @@ export function projectRetirement(inp: RetirementInputs): RetirementResult {
       }
     }
 
-    portfolio *= 1 + inp.portfolioReturn;
+    portfolio *= 1 + (inp.portfolioReturns?.[age - inp.age] ?? inp.portfolioReturn);
     pillar2 *= 1 + inp.pillar2Return;
     pensionSavings *= 1 + inp.pensionSavingsReturn;
     row.portfolio = portfolio;
@@ -209,7 +218,7 @@ export function projectRetirement(inp: RetirementInputs): RetirementResult {
     rows.push(row);
   }
   if (retireAge >= inp.endAge) {
-    wealthAtRetirement = portfolio + pillar2 + pensionSavings;
+    wealthAtRetirement = netWorth();
     priceAtRetirement = (1 + inp.inflation) ** (inp.endAge - inp.age);
   }
   return { rows, wealthAtRetirement, priceAtRetirement, depletionAge };
