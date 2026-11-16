@@ -117,7 +117,7 @@ export const t = {
     gewesten: { VL: 'Vlaanderen', WA: 'Wallonië', BR: 'Brussel' },
     reg: 'Tarief registratierechten',
     regInfo: 'De belasting die u aan het gewest betaalt bij de aankoop van een bestaande woning. Het tarief volgt het gewest en het vakje enige eigen woning; u kunt het aanpassen.',
-    regVL2027: 'Vlaanderen kondigde 3 % aan vanaf 2027; dat is nog niet gestemd.',
+    regVL2027: 'Vlaanderen kondigde 3 % aan vanaf 1 januari 2027 (Septemberverklaring 2026); het decreet was half november 2026 nog niet gestemd.',
     horizon: 'Periode',
     horizonUnit: 'jaar',
     prijs: 'Aankoopprijs',

@@ -140,7 +140,7 @@ export const t = {
       'Het model is voor één persoon. Een partner, een eigen woning, een erfenis of zorgkosten zitten er niet in.',
       'Het wettelijk pensioen is het bedrag dat u invult. Het model rekent geen loopbaan door.',
       'De tweede pijler keert uit als kapitaal wanneer het wettelijk pensioen start, en wordt dan mee belegd. Een opname vóór 60 jaar en een uitkering als rente zijn niet gemodelleerd.',
-      'Pensioensparen: 8 % heffing op 60 jaar, vrij beschikbaar zodra u gestopt bent met werken (ten vroegste op 60, uiterlijk op 65).',
+      'Pensioensparen: 8 % heffing op 60 jaar. Het model laat het kapitaal vrij zodra u gestopt bent met werken (ten vroegste op 60, uiterlijk op 65); in werkelijkheid volgt de uitbetaling uw contract. Stortingen na 60 jaar krijgen later ook een heffing, die het model niet rekent.',
       'Het vrije vermogen is belegd in kapitaliserende fondsen: geen roerende voorheffing op dividenden, wel meerwaardebelasting bij verkoop.',
       'Deze rekenregels staan niet in mijn planningsmotor; ze zijn voor deze pagina geschreven. De belastingtarieven komen er wel uit en worden ertegen getest.',
     ],
