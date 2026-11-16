@@ -26,9 +26,13 @@ public/                 static assets served as-is
 
 ## Tools
 
-The calculators under `/tools` are ports of the Python engines in the private
-`financial_report` repo. Each port is tested against numbers the Python
-produced (`tests/fixtures/`), so `npm test` fails when the two drift apart.
+Most calculator rules under `/tools` are ports of the Python engines in the
+private `financial_report` repo: rent or buy, the purchase costs, the
+risk-capacity rule and the pension taxes. Each port is tested against numbers
+the Python produced (`tests/fixtures/`), so `npm test` fails when the two drift
+apart. The retirement projection itself (`src/lib/be/retirement.ts`) is written
+for the site and has no Python counterpart; it is tested on cases worked out
+by hand.
 
 - `src/lib/` holds the engines as pure functions; `src/lib/be/` is the Belgian
   set (TypeScript, run by `node --test` directly).
