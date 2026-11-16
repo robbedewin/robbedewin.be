@@ -3,11 +3,12 @@
 // tested against it in tests/rentbuy.test.mjs.
 //
 // The renter starts with the money the buyer sinks into the purchase (own
-// contribution plus purchase costs) and keeps it invested. Each year, whoever
+// contribution plus purchase and credit-deed costs) and keeps it invested. Each year, whoever
 // pays less for housing invests the difference at the same return. The buyer
 // also owns what a sale would leave: the home's value, minus the outstanding
 // loan and the selling costs.
 import {
+  creditDeedCost,
   monthlyPayment,
   notaryFeePurchase,
   registrationRule,
@@ -22,10 +23,12 @@ export interface RentBuyInputs {
   downPaymentPct: number;
   /** Nominal yearly return on invested money, after costs and taxes. */
   investmentReturn: number;
-  /** Yearly, as a share of the purchase price; these three stay flat. */
+  /** Yearly, as a share of the purchase price in year 1; these three grow
+   *  by `costGrowthPct` a year. */
   propertyTaxPct: number;
   maintenancePct: number;
   insurancePct: number;
+  costGrowthPct: number;
   mortgageTermYears: number;
   horizonYears: number;
   houseGrowthPct: number;
@@ -39,6 +42,10 @@ export interface RentBuyInputs {
   registrationRate?: number;
   /** Replaces the notary cost from the fee scale, for someone with a quote. */
   notaryFee?: number;
+  /** Counts the credit deed of the mortgage (default true). */
+  includeCreditDeed?: boolean;
+  /** Replaces the credit-deed cost from the scale, for someone with a quote. */
+  creditDeed?: number;
 }
 
 export interface YearRow {
@@ -59,7 +66,8 @@ export interface RentBuyResult {
   schedule: YearRow[];
   registrationDuties: number;
   notaryFee: number;
-  /** Registration duties plus notary fee. */
+  creditDeed: number;
+  /** Registration duties, notary fee and credit deed. */
   upfrontCosts: number;
   downPayment: number;
   loan: number;
@@ -88,7 +96,9 @@ export function projectCashflows(inp: RentBuyInputs): RentBuyResult {
     0,
   );
   const notaryFee = inp.notaryFee ?? notaryFeePurchase(price);
-  const upfront = registrationDuties + notaryFee;
+  const creditDeed =
+    inp.includeCreditDeed === false ? 0 : inp.creditDeed ?? creditDeedCost(loan, inp.soleOwnHome);
+  const upfront = registrationDuties + notaryFee + creditDeed;
 
   const monthlyRate = inp.mortgageRate / 12;
   const payment = monthlyPayment(loan, inp.mortgageRate, inp.mortgageTermYears * 12);
@@ -112,7 +122,7 @@ export function projectCashflows(inp: RentBuyInputs): RentBuyResult {
       principalY += principal;
     }
     const paymentY = interestY + principalY;
-    const ownerOutflow = paymentY + fixedCosts;
+    const ownerOutflow = paymentY + fixedCosts * (1 + inp.costGrowthPct) ** (year - 1);
     const rent = inp.monthlyRent * 12 * (1 + inp.rentGrowthPct) ** (year - 1);
 
     renterAssets *= 1 + inp.investmentReturn;
@@ -149,6 +159,7 @@ export function projectCashflows(inp: RentBuyInputs): RentBuyResult {
     schedule,
     registrationDuties,
     notaryFee,
+    creditDeed,
     upfrontCosts: upfront,
     downPayment: down,
     loan,

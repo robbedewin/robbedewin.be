@@ -53,5 +53,24 @@
   ],
   "vaste_kosten_eur": 1500.0,
   "btw": 0.21
+ },
+ "kredietakte": {
+  "registratierecht": 0.01,
+  "hypotheekrecht": 0.003,
+  "bijhorigheden": 0.1,
+  "retributie_eur": 270.0,
+  "forfait_bijlagen_eur": 100.0,
+  "administratieve_kosten_eur": 855.0,
+  "uitgaven_derden_eur": 309.0,
+  "recht_op_geschriften_eur": 100.0,
+  "btw": 0.21,
+  "ereloon_gbis": [
+   339.24,
+   0.00182
+  ],
+  "ereloon_g": [
+   458.99,
+   0.00228
+  ]
  }
 }

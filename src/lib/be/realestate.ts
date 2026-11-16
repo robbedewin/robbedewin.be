@@ -1,6 +1,6 @@
-// Belgian purchase costs: registration duties and the notary fee.
-// A port of financial_report/shared/be_realestate (registratierechten.py,
-// notariskosten.py); the constants come from the same source through
+// Belgian purchase costs: registration duties, the notary fee and the
+// credit deed of the mortgage. A port of financial_report/shared/be_realestate
+// (registratierechten.py, notariskosten.py) and shared/be_loans/kredietkosten.py; the constants come from the same source through
 // tools/export_rentbuy_data.py. Tested against the Python in
 // tests/rentbuy.test.mjs.
 import constants from '../../data/be-realestate.json' with { type: 'json' };
@@ -95,6 +95,23 @@ export function notaryFeePurchase(price: number): number {
     if (remaining <= 0) break;
   }
   return (fee + n.vaste_kosten_eur) * (1 + n.btw);
+}
+
+/** One-off cost of the notarial credit deed of a mortgage on `loan`: 1 %
+ *  registration and 0,3 % mortgage duty on the inscribed amount (loan plus
+ *  about 10 %), the retributie, the notary fee (schaal Gbis for the only own
+ *  home, else G), fixed costs and VAT. Zero without a loan. */
+export function creditDeedCost(loan: number, soleOwnHome = true): number {
+  if (loan <= 0) return 0;
+  const k = constants.kredietakte;
+  const inscribed = loan * (1 + k.bijhorigheden);
+  const [intercept, rate] = (soleOwnHome ? k.ereloon_gbis : k.ereloon_g) as [number, number];
+  const fee = intercept + rate * loan;
+  const vatBase = fee + k.administratieve_kosten_eur + k.uitgaven_derden_eur + k.recht_op_geschriften_eur;
+  return (
+    inscribed * (k.registratierecht + k.hypotheekrecht) +
+    k.retributie_eur + k.forfait_bijlagen_eur + vatBase * (1 + k.btw)
+  );
 }
 
 /** Annuity payment per month; flat repayment at a zero rate. */

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { projectCashflows, type RentBuyInputs } from '../../lib/be/rentbuy.ts';
-  import { LAST_VERIFIED, notaryFeePurchase, registrationRule, type Region } from '../../lib/be/realestate.ts';
+  import { creditDeedCost, LAST_VERIFIED, notaryFeePurchase, registrationRule, type Region } from '../../lib/be/realestate.ts';
   import Info from './Info.svelte';
   import LineChart from './LineChart.svelte';
   import NumField from './NumField.svelte';
@@ -19,6 +19,8 @@
     reg: null as number | null,
     // The notary cost in euro, only when typed over the fee scale's figure.
     notaris: null as number | null,
+    // The credit-deed cost in euro, only when typed over the scale's figure.
+    krediet: null as number | null,
     horizon: 30,
     prijs: 400000,
     inbreng: 20,
@@ -29,6 +31,8 @@
     ov: 0.3,
     onderhoud: 1,
     verzekering: 0.1,
+    // Yearly rise of property tax, maintenance and insurance, in %.
+    kostengroei: 2,
     groei: 3,
     verkoop: 3,
     huur: 1300,
@@ -71,6 +75,7 @@
     propertyTaxPct: num(s.ov, 0, 5) / 100,
     maintenancePct: num(s.onderhoud, 0, 10) / 100,
     insurancePct: num(s.verzekering, 0, 5) / 100,
+    costGrowthPct: num(s.kostengroei, -5, 15) / 100,
     mortgageTermYears: Math.round(num(s.looptijd, 1, 40)),
     horizonYears: horizon,
     houseGrowthPct: num(s.groei, -10, 15) / 100,
@@ -81,6 +86,7 @@
     kernstad: s.gewest === 'VL' && s.kernstad,
     registrationRate: s.reg === null || s.reg === undefined ? undefined : num(s.reg, 0, 25) / 100,
     notaryFee: s.notaris === null || s.notaris === undefined ? undefined : num(s.notaris, 0, 1_000_000),
+    creditDeed: s.krediet === null || s.krediet === undefined ? undefined : num(s.krediet, 0, 1_000_000),
   });
   const regRule = $derived(
     registrationRule(inputs.price, {
@@ -90,6 +96,7 @@
     }),
   );
   const notaryDefault = $derived(Math.round(notaryFeePurchase(inputs.price)));
+  const creditDefault = $derived(Math.round(creditDeedCost(inputs.price * (1 - inputs.downPaymentPct), inputs.soleOwnHome)));
   const regDefault = $derived(Math.round(regRule.rate * 10000) / 100);
   const res = $derived(projectCashflows(inputs));
 
@@ -172,7 +179,7 @@
       if (raw === null) continue;
       const d = DEFAULTS[k];
       if (typeof d === 'boolean') s[k] = raw === '1';
-      else if (typeof d === 'number' || k === 'reg' || k === 'notaris') { if (raw !== '' && Number.isFinite(Number(raw))) s[k] = Number(raw); }
+      else if (typeof d === 'number' || k === 'reg' || k === 'notaris' || k === 'krediet') { if (raw !== '' && Number.isFinite(Number(raw))) s[k] = Number(raw); }
       else if (k === 'mix') { if (MIXES.includes(raw)) s[k] = raw; }
       else if (['VL', 'WA', 'BR'].includes(raw)) s[k] = raw;
     }
@@ -309,6 +316,9 @@
             <dd>{eur(res.registrationDuties)}</dd>
           </div>
           <div><dt>{t.upfront.notary}</dt><dd>{eur(res.notaryFee)}</dd></div>
+          {#if res.creditDeed > 0}
+            <div><dt>{t.upfront.creditDeed}</dt><dd>{eur(res.creditDeed)}</dd></div>
+          {/if}
           <div class="total"><dt>{t.upfront.total}</dt><dd>{eur(res.downPayment + res.upfrontCosts)}</dd></div>
         </dl>
       </section>
@@ -385,7 +395,7 @@
       <NumField
         id="prijs"
         label={t.fields.prijs}
-        bind:value={() => s.prijs, (v) => { s.prijs = v; s.notaris = null; }}
+        bind:value={() => s.prijs, (v) => { s.prijs = v; s.notaris = null; s.krediet = null; }}
         unit="€"
         step={5000}
       />
@@ -397,12 +407,22 @@
         step={100}
         info={t.fields.notarisInfo}
       />
-      <NumField id="inbreng" label={t.fields.inbreng} bind:value={s.inbreng} unit="%" max={100} info={t.fields.inbrengInfo} />
+      <NumField id="inbreng" label={t.fields.inbreng} bind:value={() => s.inbreng, (v) => { s.inbreng = v; s.krediet = null; }} unit="%" max={100} info={t.fields.inbrengInfo} />
+      {#if res.loan > 0}
+        <NumField
+          id="krediet"
+          label={t.fields.krediet}
+          bind:value={() => s.krediet ?? creditDefault, (v) => (s.krediet = v === creditDefault ? null : v)}
+          unit="€"
+          step={100}
+          info={t.fields.kredietInfo}
+        />
+      {/if}
       <NumField id="rente" label={t.fields.rente} bind:value={s.rente} unit="%" step={0.1} />
       <NumField id="looptijd" label={t.fields.looptijd} bind:value={s.looptijd} unit={t.fields.horizonUnit} min={1} max={40} />
       <div class="checkrow">
         <label class="check" for="enige">
-          <input id="enige" type="checkbox" bind:checked={s.enige} onchange={() => (s.reg = null)} />
+          <input id="enige" type="checkbox" bind:checked={s.enige} onchange={() => { s.reg = null; s.krediet = null; }} />
           {t.fields.enige}
         </label>
         <Info text={t.fields.enigeInfo} />
@@ -419,6 +439,7 @@
       <NumField id="ov" label={t.fields.ov} bind:value={s.ov} unit="%" step={0.05} info={t.fields.ovInfo} />
       <NumField id="onderhoud" label={t.fields.onderhoud} bind:value={s.onderhoud} unit="%" step={0.1} info={t.fields.costInfo} />
       <NumField id="verzekering" label={t.fields.verzekering} bind:value={s.verzekering} unit="%" step={0.05} info={t.fields.costInfo} />
+      <NumField id="kostengroei" label={t.fields.kostengroei} bind:value={s.kostengroei} unit="%" step={0.1} min={-5} info={t.fields.kostengroeiInfo} />
       <NumField id="groei" label={t.fields.groei} bind:value={s.groei} unit="%" step={0.1} min={-10} info={t.fields.groeiInfo(...aboveInflation(inputs.houseGrowthPct * 100))} />
       <NumField id="verkoop" label={t.fields.verkoop} bind:value={s.verkoop} unit="%" step={0.5} info={t.fields.verkoopInfo} />
     </details>

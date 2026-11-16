@@ -6,8 +6,8 @@ Run with the financial_report venv:
 
 Writes three committed files:
 - src/data/be-realestate.json: Belgian purchase-cost constants (registration
-  duties per region, the notary fee scale). Statutory figures only; nothing
-  here comes from a client folder.
+  duties per region, the notary fee scale, the costs of the credit deed).
+  Statutory figures only; nothing here comes from a client folder.
 - src/data/returns.json: the plan engine's long-run return assumptions
   (shared/projections/assumptions.py, DMS_BASELINE), for the portfolio mix.
 - tests/fixtures/rentbuy-reference.json: results of the Python engine
@@ -32,9 +32,11 @@ from shared.be_realestate import (  # noqa: E402
     notary_fee_purchase,
     registratierechten,
 )
+from shared.be_loans import kredietkosten  # noqa: E402
 from shared.be_realestate._data import load  # noqa: E402
 from shared.projections.assumptions import DMS_BASELINE  # noqa: E402
 from shared.rentbuy import CashflowInputs, project_cashflows  # noqa: E402
+from shared.rentbuy.cashflow_model import credit_deed_eur  # noqa: E402
 
 reg = load("registratierechten")
 p = reg["parameters"]
@@ -67,6 +69,22 @@ constants = {
         ],
         "vaste_kosten_eur": notariskosten.NOTARY_FIXED_COSTS_EUR,
         "btw": notariskosten.VAT_RATE,
+    },
+    # The mortgage's credit deed (shared/be_loans/kredietkosten.py, checked
+    # against the notaris.be standaardkrediet calculator).
+    "kredietakte": {
+        "registratierecht": kredietkosten.REGISTRATIERECHT_PCT,
+        "hypotheekrecht": kredietkosten.HYPOTHEEKRECHT_PCT,
+        "bijhorigheden": kredietkosten.INSCRIPTION_OVERHEAD_PCT,
+        "retributie_eur": kredietkosten.RETRIBUTIE_EUR,
+        "forfait_bijlagen_eur": kredietkosten.FORFAIT_REGISTRATIE_BIJLAGEN_EUR,
+        "administratieve_kosten_eur": kredietkosten.ADMINISTRATIEVE_KOSTEN_EUR,
+        "uitgaven_derden_eur": kredietkosten.UITGAVEN_AAN_DERDEN_EUR,
+        "recht_op_geschriften_eur": kredietkosten.RECHT_OP_GESCHRIFTEN_EUR,
+        "btw": kredietkosten.VAT_RATE,
+        # Ereloon = intercept + rate * loan (schaal Gbis for the only own home, else G).
+        "ereloon_gbis": list(kredietkosten.ERELOON_GBIS),
+        "ereloon_g": list(kredietkosten.ERELOON_G),
     },
 }
 (ROOT / "src/data/be-realestate.json").write_text(json.dumps(constants, indent=1) + "\n")
@@ -110,6 +128,10 @@ CASES = [
          rent_growth_pct=0.03, selling_cost_pct=0.05, insurance_pct=0.002,
          maintenance_pct=0.015, down_payment_pct=0.35, mortgage_rate=0.045),
     dict(home_value_eur=400_000, monthly_rent_eur=1_250, holding_period_years=1),
+    dict(home_value_eur=400_000, monthly_rent_eur=1_300, holding_period_years=30,
+         cost_growth_pct=0.0, include_credit_deed=False),
+    dict(home_value_eur=380_000, monthly_rent_eur=1_250, holding_period_years=20,
+         cost_growth_pct=0.035, is_sole_own_home=False),
 ]
 BASE = dict(home_value_eur=400_000, monthly_rent_eur=1_200)
 
@@ -145,7 +167,13 @@ for price in (150_000, 219_999, 220_000, 220_001, 240_000, 400_000, 600_000, 600
                     "notaris": round(notary_fee_purchase(price), 4),
                 })
 
-out = {"cashflow": cases, "purchase": purchase}
+credit = [
+    {"loan": loan, "sole": sole, "kredietakte": round(credit_deed_eur(loan, is_sole_own_home=sole), 4)}
+    for loan in (0, 50_000, 150_000, 320_000, 440_000)
+    for sole in (True, False)
+]
+
+out = {"cashflow": cases, "purchase": purchase, "credit": credit}
 (ROOT / "tests/fixtures/rentbuy-reference.json").write_text(json.dumps(out) + "\n")
 print(f"{len(cases)} cash-flow cases, {len(purchase)} purchase-cost cases")
 for c in cases:
