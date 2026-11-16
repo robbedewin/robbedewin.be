@@ -6,11 +6,10 @@
   import LineChart from './LineChart.svelte';
   import NumField from './NumField.svelte';
   import { t } from './pensioen.nl.ts';
-  import returns from '../../data/returns.json';
+  import ReturnsFields from './ReturnsFields.svelte';
+  import { defaultReturns, DEFAULT_FEE_PCT, DEFAULT_MIX, MIXES, portfolioReturnPct } from '../../lib/returns.ts';
 
   const C = PENSION_CONSTANTS;
-  // Long-run returns with inflation included, in %, from the plan engine.
-  const nominalPct = (real: number) => Math.round((real + returns.inflation) * 1000) / 10;
 
   // Percentages are held the way they are typed. The keys double as the
   // names in the shareable link.
@@ -21,9 +20,11 @@
     uitgaven: 2500,
     vermogen: 50000,
     sparen: 500,
-    mix: '80' as string,
-    aandelen: nominalPct(returns.equity_real),
-    obligaties: nominalPct(returns.bond_real),
+    mix: DEFAULT_MIX as string,
+    // Nominal returns in %, only when typed over the long-run default.
+    aandelen: null as number | null,
+    obligaties: null as number | null,
+    kosten: DEFAULT_FEE_PCT,
     voorzichtig: 2,
     inflatie: 2,
     reeel: true,
@@ -42,7 +43,6 @@
   };
   type Key = keyof typeof DEFAULTS;
   const KEYS = Object.keys(DEFAULTS) as Key[];
-  const MIXES = ['100', '80', '60', '40', '20', '0'];
 
   let s = $state<Record<Key, any>>({ ...DEFAULTS });
   let tab = $state<'vermogen' | 'opbouw' | 'inkomen' | 'belasting' | 'tabel'>('vermogen');
@@ -63,9 +63,15 @@
   const legalAge = $derived(legalPensionAge(new Date().getFullYear() - age));
   const pensionAge = $derived(s.start === null || s.start === undefined ? legalAge : Math.round(num(s.start, 60, 75)));
   const inflation = $derived(num(s.inflatie, 0, 15) / 100);
+  // The free portfolio's return: the weighted mix, minus costs.
   const returnPct = $derived.by(() => {
-    const w = (MIXES.includes(s.mix) ? Number(s.mix) : 80) / 100;
-    return w * num(s.aandelen, -10, 20) + (1 - w) * num(s.obligaties, -10, 20);
+    const d = defaultReturns(inflation * 100);
+    return portfolioReturnPct(
+      s.mix,
+      s.aandelen === null || s.aandelen === undefined ? d.equity : num(s.aandelen, -10, 20),
+      s.obligaties === null || s.obligaties === undefined ? d.bonds : num(s.obligaties, -10, 20),
+      num(s.kosten, 0, 5),
+    );
   });
   const cautiousPts = $derived(num(s.voorzichtig, 0, 10));
 
@@ -177,7 +183,7 @@
       if (raw === null) continue;
       const d = DEFAULTS[k];
       if (typeof d === 'boolean') s[k] = raw === '1';
-      else if (k === 'mix') { if (MIXES.includes(raw)) s[k] = raw; }
+      else if (k === 'mix') { if ((MIXES as readonly string[]).includes(raw)) s[k] = raw; }
       else if (raw !== '' && Number.isFinite(Number(raw))) s[k] = Number(raw);
     }
     ready = true;
@@ -201,7 +207,6 @@
   const ages = $derived(rows.map((r) => r.age));
   const unitNote = $derived(s.reeel ? t.tiles.real : t.tiles.nominal);
   const retireMarker = $derived(retireAge > age ? { year: retireAge, label: t.chart.retire } : null);
-  const assetSource = `${returns.source}, ${returns.period}`;
   const verified = Object.values(C.last_verified).sort();
 </script>
 
@@ -410,26 +415,14 @@
 
     <details open>
       <summary>{t.panel.returns}</summary>
-      <div class="selectrow">
-        <div class="lab">
-          <label for="mix">{t.fields.mix}</label>
-          <Info text={t.fields.mixInfo} />
-        </div>
-        <select id="mix" bind:value={s.mix}>
-          {#each MIXES as m}<option value={m}>{t.fields.mixOption(Number(m))}</option>{/each}
-        </select>
-      </div>
-      <NumField id="aandelen" label={t.fields.equity} bind:value={s.aandelen} unit="%" step={0.1} min={-10}
-        info={t.fields.assetInfo(pct(returns.equity_real), pct(returns.inflation, 0), assetSource)} />
-      <NumField id="obligaties" label={t.fields.bonds} bind:value={s.obligaties} unit="%" step={0.1} min={-10}
-        info={t.fields.assetInfo(pct(returns.bond_real), pct(returns.inflation, 0), assetSource)} />
-      <div class="outrow">
-        <div class="lab">
-          <span>{t.fields.portfolioReturn}</span>
-          <Info text={t.fields.portfolioReturnInfo(pct(returnPct / 100), pct(returnPct / 100 - inflation))} />
-        </div>
-        <output for="mix aandelen obligaties">{pct(returnPct / 100)}</output>
-      </div>
+      <ReturnsFields
+        bind:mix={s.mix}
+        bind:equity={s.aandelen}
+        bind:bonds={s.obligaties}
+        bind:fee={s.kosten}
+        inflationPct={inflation * 100}
+        mixInfo={t.fields.mixInfo}
+      />
       <NumField id="voorzichtig" label={t.fields.cautious} bind:value={s.voorzichtig} unit="%" step={0.5} max={10} info={t.fields.cautiousInfo} />
       <NumField id="inflatie" label={t.fields.inflation} bind:value={s.inflatie} unit="%" step={0.1} info={t.fields.inflationInfo} />
       <label class="check" for="reeel">
@@ -532,24 +525,6 @@
   .about summary:hover { color: var(--accent-hover); }
   .disclaimer { margin: 4px 0 0; font-size: 13px; }
   .checkrow { position: relative; display: flex; align-items: center; gap: 8px; }
-  .selectrow { position: relative; display: flex; flex-direction: column; gap: 8px; }
-  /* A computed value, set where the inputs sit but without a box. */
-  .outrow { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 40px; }
-  .outrow span { font-family: var(--font-mono); font-size: 13px; color: var(--fg-muted); }
-  .outrow output { padding-right: 13px; font: 500 16px var(--font-mono); color: var(--accent); font-variant-numeric: tabular-nums; }
-  .lab { display: flex; align-items: center; gap: 8px; }
-  .lab label { font-family: var(--font-mono); font-size: 13px; color: var(--fg-muted); }
-  select {
-    width: 100%;
-    min-height: 40px;
-    padding: 0 12px;
-    background: var(--bg);
-    border: 1px solid var(--line-strong);
-    border-radius: 3px;
-    color: var(--fg);
-    font: 500 14px var(--font-mono);
-  }
-  select:focus-visible { border-color: var(--accent); }
   .list { margin: 0; }
   .list > div {
     position: relative;

@@ -103,3 +103,23 @@ ref.cashflow.forEach((c, i) => {
     });
   });
 });
+
+test('capital-gains tax on the invested money, never on the home', () => {
+  const base = {
+    price: 300_000, monthlyRent: 1_000, mortgageRate: 0.03, downPaymentPct: 0.2,
+    investmentReturn: 0.05, propertyTaxPct: 0.003, maintenancePct: 0.01, insurancePct: 0.001,
+    costGrowthPct: 0.02, mortgageTermYears: 25, horizonYears: 20, houseGrowthPct: 0.03,
+    rentGrowthPct: 0.02, sellingCostPct: 0.03, region: 'VL', soleOwnHome: true,
+  };
+  const free = projectCashflows(base);
+  const taxed = projectCashflows({ ...base, capitalGainsRate: 0.1, capitalGainsExemption: 10_000, exemptionGrowth: 0.02 });
+  const last = taxed.schedule.at(-1);
+  assert.ok(last.renterGainsTax > 0, 'the renter pays on the gain');
+  close(taxed.renterNetWorth, free.renterNetWorth - last.renterGainsTax, 'renter net of tax');
+  close(taxed.buyerNetWorth, free.buyerNetWorth - last.buyerGainsTax, 'buyer: only the side pot is taxed');
+  // Without a rate nothing changes (the Python engine has no such tax).
+  assert.equal(free.schedule.at(-1).renterGainsTax, 0);
+  // Gains below the exemption are free.
+  const small = projectCashflows({ ...base, horizonYears: 1, capitalGainsRate: 0.1, capitalGainsExemption: 1e9 });
+  assert.equal(small.schedule[0].renterGainsTax, 0);
+});

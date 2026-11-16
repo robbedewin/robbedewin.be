@@ -6,12 +6,12 @@
   import LineChart from './LineChart.svelte';
   import NumField from './NumField.svelte';
   import { t } from './huren-of-kopen.nl.ts';
-  import returns from '../../data/returns.json';
+  import ReturnsFields from './ReturnsFields.svelte';
+  import { defaultReturns, DEFAULT_FEE_PCT, DEFAULT_MIX, MIXES, portfolioReturnPct } from '../../lib/returns.ts';
+  import { PENSION_CONSTANTS } from '../../lib/be/pensiontax.ts';
 
   // Percentages are held the way they are typed (3.4 for 3,4 %). The keys
   // double as the names in the shareable link.
-  // Long-run returns with inflation included, in %, from the plan engine.
-  const nominalPct = (real: number) => Math.round((real + returns.inflation) * 1000) / 10;
 
   const DEFAULTS = {
     gewest: 'VL' as Region,
@@ -38,9 +38,14 @@
     huur: 1300,
     index: 2,
     // Share of equities in the portfolio, in %.
-    mix: '80' as string,
-    aandelen: nominalPct(returns.equity_real),
-    obligaties: nominalPct(returns.bond_real),
+    mix: DEFAULT_MIX as string,
+    // Nominal returns in %, only when typed over the long-run default.
+    aandelen: null as number | null,
+    obligaties: null as number | null,
+    kosten: DEFAULT_FEE_PCT,
+    // Capital-gains tax on what is invested: rate in %, yearly exemption in euro.
+    mwb: PENSION_CONSTANTS.meerwaardebelasting.tarief * 100,
+    vrijstelling: PENSION_CONSTANTS.meerwaardebelasting.vrijstelling_eur,
     inflatie: 2,
     reeel: true,
   };
@@ -61,10 +66,15 @@
   const horizon = $derived(Math.round(num(s.horizon, 1, 50)));
   const inflation = $derived(num(s.inflatie, 0, 15) / 100);
   // The portfolio's return is the weighted average of its two parts.
-  const MIXES = ['100', '80', '60', '40', '20', '0'];
+  // The portfolio's return: the weighted mix, minus costs.
   const returnPct = $derived.by(() => {
-    const w = (MIXES.includes(s.mix) ? Number(s.mix) : 80) / 100;
-    return w * num(s.aandelen, -10, 20) + (1 - w) * num(s.obligaties, -10, 20);
+    const d = defaultReturns(inflation * 100);
+    return portfolioReturnPct(
+      s.mix,
+      s.aandelen === null || s.aandelen === undefined ? d.equity : num(s.aandelen, -10, 20),
+      s.obligaties === null || s.obligaties === undefined ? d.bonds : num(s.obligaties, -10, 20),
+      num(s.kosten, 0, 5),
+    );
   });
   const inputs = $derived<RentBuyInputs>({
     price: num(s.prijs, 10_000, 100_000_000),
@@ -72,6 +82,9 @@
     mortgageRate: num(s.rente, 0, 20) / 100,
     downPaymentPct: num(s.inbreng, 0, 100) / 100,
     investmentReturn: returnPct / 100,
+    capitalGainsRate: num(s.mwb, 0, 50) / 100,
+    capitalGainsExemption: num(s.vrijstelling, 0, 1e7),
+    exemptionGrowth: inflation,
     propertyTaxPct: num(s.ov, 0, 5) / 100,
     maintenancePct: num(s.onderhoud, 0, 10) / 100,
     insurancePct: num(s.verzekering, 0, 5) / 100,
@@ -179,8 +192,8 @@
       if (raw === null) continue;
       const d = DEFAULTS[k];
       if (typeof d === 'boolean') s[k] = raw === '1';
-      else if (typeof d === 'number' || k === 'reg' || k === 'notaris' || k === 'krediet') { if (raw !== '' && Number.isFinite(Number(raw))) s[k] = Number(raw); }
-      else if (k === 'mix') { if (MIXES.includes(raw)) s[k] = raw; }
+      else if (typeof d === 'number' || ['reg', 'notaris', 'krediet', 'aandelen', 'obligaties'].includes(k)) { if (raw !== '' && Number.isFinite(Number(raw))) s[k] = Number(raw); }
+      else if (k === 'mix') { if ((MIXES as readonly string[]).includes(raw)) s[k] = raw; }
       else if (['VL', 'WA', 'BR'].includes(raw)) s[k] = raw;
     }
     ready = true;
@@ -452,26 +465,16 @@
 
     <details open>
       <summary>{t.panel.invest}</summary>
-      <div class="selectrow">
-        <div class="lab">
-          <label for="mix">{t.fields.mix}</label>
-          <Info text={t.fields.mixInfo} />
-        </div>
-        <select id="mix" bind:value={s.mix}>
-          {#each MIXES as m}<option value={m}>{t.fields.mixOption(Number(m))}</option>{/each}
-        </select>
-      </div>
-      <NumField id="aandelen" label={t.fields.aandelen} bind:value={s.aandelen} unit="%" step={0.1} min={-10}
-        info={t.fields.assetInfo(pct(returns.equity_real), pct(returns.inflation, 0), `${returns.source}, ${returns.period}`)} />
-      <NumField id="obligaties" label={t.fields.obligaties} bind:value={s.obligaties} unit="%" step={0.1} min={-10}
-        info={t.fields.assetInfo(pct(returns.bond_real), pct(returns.inflation, 0), `${returns.source}, ${returns.period}`)} />
-      <div class="outrow">
-        <div class="lab">
-          <span>{t.fields.rendement}</span>
-          <Info text={t.fields.rendementInfo(...aboveInflation(returnPct))} />
-        </div>
-        <output for="mix aandelen obligaties">{pct(returnPct / 100)}</output>
-      </div>
+      <ReturnsFields
+        bind:mix={s.mix}
+        bind:equity={s.aandelen}
+        bind:bonds={s.obligaties}
+        bind:fee={s.kosten}
+        inflationPct={inflation * 100}
+        mixInfo={t.fields.mixInfo}
+      />
+      <NumField id="mwb" label={t.fields.mwb} bind:value={s.mwb} unit="%" step={1} max={50} info={t.fields.mwbInfo} />
+      <NumField id="vrijstelling" label={t.fields.vrijstelling} bind:value={s.vrijstelling} unit="€" step={1000} info={t.fields.vrijstellingInfo} />
       <NumField id="inflatie" label={t.fields.inflatie} bind:value={s.inflatie} unit="%" step={0.1} info={t.fields.inflatieInfo} />
       <label class="check" for="reeel">
         <input id="reeel" type="checkbox" bind:checked={s.reeel} />
@@ -573,24 +576,6 @@
   .about summary:hover { color: var(--accent-hover); }
   .disclaimer { margin: 4px 0 0; font-size: 13px; }
   .checkrow { position: relative; display: flex; align-items: center; gap: 8px; }
-  .selectrow { position: relative; display: flex; flex-direction: column; gap: 8px; }
-  /* A computed value, set where the inputs sit but without a box. */
-  .outrow { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 40px; }
-  .outrow span { font-family: var(--font-mono); font-size: 13px; color: var(--fg-muted); }
-  .outrow output { padding-right: 13px; font: 500 16px var(--font-mono); color: var(--accent); font-variant-numeric: tabular-nums; }
-  .lab { display: flex; align-items: center; gap: 8px; }
-  .lab label { font-family: var(--font-mono); font-size: 13px; color: var(--fg-muted); }
-  select {
-    width: 100%;
-    min-height: 40px;
-    padding: 0 12px;
-    background: var(--bg);
-    border: 1px solid var(--line-strong);
-    border-radius: 3px;
-    color: var(--fg);
-    font: 500 14px var(--font-mono);
-  }
-  select:focus-visible { border-color: var(--accent); }
   .list { margin: 0; }
   .list > div {
     position: relative;

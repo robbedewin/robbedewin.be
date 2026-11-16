@@ -97,16 +97,7 @@ export const t = {
     portfolioInfo: 'Wat u vandaag vrij kunt opnemen: beleggingen en spaargeld dat u niet als buffer nodig hebt.',
     saving: 'Sparen per maand',
     savingInfo: 'In euro van vandaag; het bedrag stijgt mee met de inflatie tot u stopt met werken.',
-    mix: 'Portefeuille',
-    mixOption: (equity: number) => `${equity} % aandelen, ${100 - equity} % obligaties`,
     mixInfo: 'De verdeling van het vrije vermogen, voor en na het pensioen dezelfde.',
-    equity: 'Rendement aandelen',
-    bonds: 'Rendement obligaties',
-    assetInfo: (real: string, inflation: string, source: string) =>
-      `Per jaar, inflatie inbegrepen. De standaardwaarde is ${real} boven inflatie (${source}) plus ${inflation} inflatie, vóór kosten. Verlaag het cijfer daarvoor.`,
-    portfolioReturn: 'Rendement portefeuille',
-    portfolioReturnInfo: (nominal: string, real: string) =>
-      `Volgt uit de portefeuille en de twee rendementen erboven. ${nominal} per jaar is ${real} boven inflatie.`,
     cautious: 'Voorzichtig scenario',
     cautiousInfo: 'Hoeveel procentpunt rendement er in het voorzichtige scenario elk jaar af gaat. Het toont hoe gevoelig het plan is; het is geen voorspelling.',
     inflation: 'Inflatie',

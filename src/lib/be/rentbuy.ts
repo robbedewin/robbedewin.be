@@ -46,6 +46,13 @@ export interface RentBuyInputs {
   includeCreditDeed?: boolean;
   /** Replaces the credit-deed cost from the scale, for someone with a quote. */
   creditDeed?: number;
+  /** Capital-gains tax on the invested money (renter's portfolio, buyer's
+   *  side pot), as if sold in that year; the own home's gain is tax-free.
+   *  Not in the Python engine: left out, the two agree. */
+  capitalGainsRate?: number;
+  /** The yearly exemption in today's euros, rising by `exemptionGrowth`. */
+  capitalGainsExemption?: number;
+  exemptionGrowth?: number;
 }
 
 export interface YearRow {
@@ -58,6 +65,9 @@ export interface YearRow {
   rent: number;
   buyerNetWorth: number;
   renterNetWorth: number;
+  /** Capital-gains tax counted in the two net worths (0 without a rate). */
+  buyerGainsTax: number;
+  renterGainsTax: number;
 }
 
 export type Verdict = 'huren' | 'kopen' | 'pariteit';
@@ -107,6 +117,14 @@ export function projectCashflows(inp: RentBuyInputs): RentBuyResult {
   let balance = loan;
   let renterAssets = down + upfront;
   let buyerAssets = 0; // side investments only; the home is added at sale
+  // What went in, for the capital-gains tax on a sale.
+  let renterBasis = renterAssets;
+  let buyerBasis = 0;
+  const gainsTax = (assets: number, basis: number, year: number) => {
+    if (!inp.capitalGainsRate) return 0;
+    const exemption = (inp.capitalGainsExemption ?? 0) * (1 + (inp.exemptionGrowth ?? 0)) ** year;
+    return Math.max(assets - basis - exemption, 0) * inp.capitalGainsRate;
+  };
   let breakevenYear: number | null = null;
   const schedule: YearRow[] = [];
 
@@ -128,12 +146,16 @@ export function projectCashflows(inp: RentBuyInputs): RentBuyResult {
     renterAssets *= 1 + inp.investmentReturn;
     buyerAssets *= 1 + inp.investmentReturn;
     const diff = ownerOutflow - rent;
-    if (diff > 0) renterAssets += diff;
-    else buyerAssets -= diff;
+    if (diff > 0) { renterAssets += diff; renterBasis += diff; }
+    else { buyerAssets -= diff; buyerBasis -= diff; }
+    const renterGainsTax = gainsTax(renterAssets, renterBasis, year);
+    const buyerGainsTax = gainsTax(buyerAssets, buyerBasis, year);
+    const renterNetWorth = renterAssets - renterGainsTax;
 
     const houseValue = price * (1 + inp.houseGrowthPct) ** year;
-    const buyerNetWorth = buyerAssets + houseValue - balance - houseValue * inp.sellingCostPct;
-    if (breakevenYear === null && buyerNetWorth >= renterAssets) breakevenYear = year;
+    const buyerNetWorth =
+      buyerAssets - buyerGainsTax + houseValue - balance - houseValue * inp.sellingCostPct;
+    if (breakevenYear === null && buyerNetWorth >= renterNetWorth) breakevenYear = year;
 
     schedule.push({
       year,
@@ -144,7 +166,9 @@ export function projectCashflows(inp: RentBuyInputs): RentBuyResult {
       ownerOutflow,
       rent,
       buyerNetWorth,
-      renterNetWorth: renterAssets,
+      renterNetWorth,
+      buyerGainsTax,
+      renterGainsTax,
     });
   }
 
