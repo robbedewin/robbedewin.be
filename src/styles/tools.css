@@ -1,0 +1,150 @@
+/* Shared layout of the larger calculators (huren-of-kopen, pensioen): the
+   two-column page, the result tiles, cards, tabs, tables and the assumptions
+   panel. Imported by their components; every rule sits under .calc so it
+   cannot touch the rest of the site (global.css has its own .card). */
+.calc {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+  gap: 28px;
+  align-items: start;
+}
+.calc__main { min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+/* One column: the assumptions come right after the chart, before the notes. */
+@media (max-width: 1040px) {
+  /* stretch: the grid's align-items: start would shrink each block to its content. */
+  .calc { display: flex; flex-direction: column; align-items: stretch; gap: 24px; }
+  .calc__main { display: contents; }
+  .calc .panel { order: 1; }
+  .calc .below { order: 3; }
+}
+
+.calc .tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.calc .tiles > div { background: var(--panel); padding: 20px 24px; }
+.calc .tiles dt { margin: 0 0 6px; font-family: var(--font-mono); font-size: 12px; color: var(--fg-muted); }
+.calc .tiles dd {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.calc .tiles dd.accent { color: var(--accent); }
+.calc .tiles dd.sub {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--fg-muted);
+}
+
+.calc .verdict { margin: 0; font-size: 1.15rem; max-width: 80ch; }
+
+.calc .card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 24px;
+  min-width: 0;
+}
+.calc .card h2, .calc .panel h2 { margin: 0 0 16px; font-size: 1.15rem; }
+.calc .unit { margin: 10px 0 0; font-family: var(--font-mono); font-size: 12px; color: var(--fg-muted); }
+
+.calc .tabs { display: flex; flex-wrap: wrap; gap: 4px 24px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
+.calc .tabs button {
+  min-height: 44px;
+  padding: 0 2px;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--fg-muted);
+  font: 500 14px var(--font-mono);
+  cursor: pointer;
+}
+.calc .tabs button:hover { color: var(--accent-hover); }
+.calc .tabs button[aria-selected='true'] { color: var(--accent); border-bottom-color: var(--accent); }
+
+.calc .table-scroll { overflow-x: auto; max-height: 460px; overflow-y: auto; }
+.calc .table-scroll table { min-width: 620px; }
+.calc .table-scroll th { position: sticky; top: 0; background: var(--panel); }
+.calc .table-scroll td, .calc .table-scroll th { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.calc .table-scroll td:first-child, .calc .table-scroll th:first-child { text-align: left; }
+
+.calc .below { font-size: 0.94rem; color: var(--fg-muted); }
+.calc .about { border-top: 0; padding: 0; max-width: 80ch; }
+.calc .about summary { font-weight: 500; color: var(--fg-muted); }
+.calc .about summary:hover { color: var(--accent-hover); }
+.calc .disclaimer { margin: 4px 0 0; font-size: 13px; }
+.calc .checkrow { position: relative; display: flex; align-items: center; gap: 8px; }
+.calc .list { margin: 0; }
+.calc .list > div {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.calc .list > div:last-child { border-bottom: 0; }
+.calc .list dt { color: var(--fg-muted); }
+.calc .list dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.calc .list .total dt, .calc .list .total dd { color: var(--fg); font-weight: 600; }
+.calc .list dt .info { margin-left: 4px; }
+
+.calc .panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.calc .panel__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; }
+.calc .panel__head h2 { margin: 0; }
+.calc .panel__actions { display: flex; flex-wrap: wrap; gap: 0 16px; }
+.calc .link {
+  min-height: 36px;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: var(--accent);
+  font: 13px var(--font-mono);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.calc .link:hover { color: var(--accent-hover); }
+.calc details { border-top: 1px solid var(--line); padding: 4px 0 12px; }
+.calc details > * + * { margin-top: 12px; }
+.calc summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.calc summary::-webkit-details-marker { display: none; }
+.calc summary::before { content: '▸'; color: var(--accent); font-family: var(--font-mono); }
+.calc details[open] > summary::before { content: '▾'; }
+.calc .cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 24px;
+  align-items: start;
+}
+@media (max-width: 1040px) {
+  .calc .cards { order: 2; }
+}

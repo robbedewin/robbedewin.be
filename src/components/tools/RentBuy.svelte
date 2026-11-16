@@ -1,4 +1,7 @@
 <script lang="ts">
+  import '../../styles/tools.css';
+  import { eur, eurShort, pct } from './format.nl.ts';
+  import { copyText, readQuery, writeQuery } from '../../lib/url-state.ts';
   import { onMount } from 'svelte';
   import { projectCashflows, type RentBuyInputs } from '../../lib/be/rentbuy.ts';
   import { creditDeedCost, LAST_VERIFIED, notaryFeePurchase, registrationRule, type Region } from '../../lib/be/realestate.ts';
@@ -50,7 +53,6 @@
     reeel: true,
   };
   type Key = keyof typeof DEFAULTS;
-  const KEYS = Object.keys(DEFAULTS) as Key[];
 
   let s = $state<Record<Key, any>>({ ...DEFAULTS });
   let tab = $state<'vermogen' | 'kosten' | 'tabel'>('vermogen');
@@ -146,11 +148,6 @@
       : null,
   );
 
-  const eurFmt = new Intl.NumberFormat('nl-BE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
-  const eurShortFmt = new Intl.NumberFormat('nl-BE', { style: 'currency', currency: 'EUR', notation: 'compact', maximumFractionDigits: 1 });
-  const eur = (v: number) => eurFmt.format(Math.round(v));
-  const eurShort = (v: number) => eurShortFmt.format(v);
-  const pct = (x: number, d = 1) => `${(x * 100).toFixed(d).replace('.', ',')} %`;
   // A typed percentage and what it leaves above inflation, for the info texts.
   const aboveInflation = (p: number) => [pct(p / 100), pct(p / 100 - inflation)] as const;
 
@@ -176,39 +173,19 @@
   );
 
   // Shareable link: only the values that differ from the defaults.
-  function query() {
-    const q = new URLSearchParams();
-    for (const k of KEYS) {
-      const v = s[k];
-      if (v === DEFAULTS[k] || v === null || v === undefined || v === '') continue;
-      q.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
-    }
-    return q.toString();
-  }
   onMount(() => {
-    const q = new URLSearchParams(location.search);
-    for (const k of KEYS) {
-      const raw = q.get(k);
-      if (raw === null) continue;
-      const d = DEFAULTS[k];
-      if (typeof d === 'boolean') s[k] = raw === '1';
-      else if (typeof d === 'number' || ['reg', 'notaris', 'krediet', 'aandelen', 'obligaties'].includes(k)) { if (raw !== '' && Number.isFinite(Number(raw))) s[k] = Number(raw); }
-      else if (k === 'mix') { if ((MIXES as readonly string[]).includes(raw)) s[k] = raw; }
-      else if (['VL', 'WA', 'BR'].includes(raw)) s[k] = raw;
-    }
+    Object.assign(s, readQuery(location.search, DEFAULTS, { mix: MIXES, gewest: ['VL', 'WA', 'BR'] }));
     ready = true;
   });
   $effect(() => {
-    const q = query();
+    const q = writeQuery(s, DEFAULTS);
     if (ready) history.replaceState(null, '', q ? `?${q}` : location.pathname);
   });
   async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(location.href);
+    // No clipboard access: the address bar already holds the link.
+    if (await copyText(location.href)) {
       copied = true;
       setTimeout(() => (copied = false), 2000);
-    } catch {
-      // No clipboard access: the address bar already holds the link.
     }
   }
   const reset = () => { s = { ...DEFAULTS }; };
@@ -483,150 +460,3 @@
     </details>
   </form>
 </div>
-
-<style>
-  .calc {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
-    gap: 28px;
-    align-items: start;
-  }
-  .calc__main { min-width: 0; display: flex; flex-direction: column; gap: 24px; }
-  /* One column: the assumptions come right after the chart, before the notes. */
-  @media (max-width: 1040px) {
-    /* stretch: the grid's align-items: start would shrink each block to its content. */
-    .calc { display: flex; flex-direction: column; align-items: stretch; gap: 24px; }
-    .calc__main { display: contents; }
-    .panel { order: 1; }
-    .cards { order: 2; }
-    .below { order: 3; }
-  }
-
-  .tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
-    gap: 1px;
-    margin: 0;
-    background: var(--line);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  .tiles > div { background: var(--panel); padding: 20px 24px; }
-  .tiles dt { margin: 0 0 6px; font-family: var(--font-mono); font-size: 12px; color: var(--fg-muted); }
-  .tiles dd {
-    margin: 0;
-    font-size: 1.75rem;
-    font-weight: 600;
-    line-height: 1.15;
-    letter-spacing: -0.02em;
-    font-variant-numeric: tabular-nums;
-  }
-  .tiles dd.accent { color: var(--accent); }
-  .tiles dd.sub {
-    margin-top: 4px;
-    font-size: 13px;
-    font-weight: 400;
-    letter-spacing: 0;
-    color: var(--fg-muted);
-  }
-
-  .verdict { margin: 0; font-size: 1.15rem; max-width: 80ch; }
-
-  .card {
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 24px;
-    min-width: 0;
-  }
-  .card h2, .panel h2 { margin: 0 0 16px; font-size: 1.15rem; }
-  .unit { margin: 10px 0 0; font-family: var(--font-mono); font-size: 12px; color: var(--fg-muted); }
-
-  .tabs { display: flex; flex-wrap: wrap; gap: 4px 24px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
-  .tabs button {
-    min-height: 44px;
-    padding: 0 2px;
-    background: none;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    color: var(--fg-muted);
-    font: 500 14px var(--font-mono);
-    cursor: pointer;
-  }
-  .tabs button:hover { color: var(--accent-hover); }
-  .tabs button[aria-selected='true'] { color: var(--accent); border-bottom-color: var(--accent); }
-
-  .table-scroll { overflow-x: auto; max-height: 460px; overflow-y: auto; }
-  .table-scroll table { min-width: 620px; }
-  .table-scroll th { position: sticky; top: 0; background: var(--panel); }
-  .table-scroll td, .table-scroll th { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .table-scroll td:first-child, .table-scroll th:first-child { text-align: left; }
-
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
-    gap: 24px;
-    align-items: start;
-  }
-  .below { font-size: 0.94rem; color: var(--fg-muted); }
-  .about { border-top: 0; padding: 0; max-width: 80ch; }
-  .about summary { font-weight: 500; color: var(--fg-muted); }
-  .about summary:hover { color: var(--accent-hover); }
-  .disclaimer { margin: 4px 0 0; font-size: 13px; }
-  .checkrow { position: relative; display: flex; align-items: center; gap: 8px; }
-  .list { margin: 0; }
-  .list > div {
-    position: relative;
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .list > div:last-child { border-bottom: 0; }
-  .list dt { color: var(--fg-muted); }
-  .list dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .list .total dt, .list .total dd { color: var(--fg); font-weight: 600; }
-  .list dt :global(.info) { margin-left: 4px; }
-
-  .panel {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 24px;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-  }
-  .panel__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; }
-  .panel__head h2 { margin: 0; }
-  .panel__actions { display: flex; flex-wrap: wrap; gap: 0 16px; }
-  .link {
-    min-height: 36px;
-    padding: 0;
-    background: none;
-    border: 0;
-    color: var(--accent);
-    font: 13px var(--font-mono);
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    cursor: pointer;
-  }
-  .link:hover { color: var(--accent-hover); }
-  details { border-top: 1px solid var(--line); padding: 4px 0 12px; }
-  details > :global(* + *) { margin-top: 12px; }
-  summary {
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    list-style: none;
-  }
-  summary::-webkit-details-marker { display: none; }
-  summary::before { content: '▸'; color: var(--accent); font-family: var(--font-mono); }
-  details[open] > summary::before { content: '▾'; }
-</style>
