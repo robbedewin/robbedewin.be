@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { leviesPillar2, PENSION_CONSTANTS } from '../../lib/be/pensiontax.ts';
+  import { legalPensionAge, leviesPillar2, PENSION_CONSTANTS } from '../../lib/be/pensiontax.ts';
   import { projectRetirement, sustainableSpending, type RetirementInputs } from '../../lib/be/retirement.ts';
   import Info from './Info.svelte';
   import LineChart from './LineChart.svelte';
@@ -28,7 +28,8 @@
     inflatie: 2,
     reeel: true,
     wettelijk: 1800,
-    start: C.wettelijk_pensioen.leeftijd_2030,
+    // The start of the statutory pension, only when typed over the legal age.
+    start: null as number | null,
     p2: 20000,
     p2storting: 2000,
     p2rendement: 2,
@@ -57,7 +58,10 @@
   const age = $derived(Math.round(num(s.leeftijd, 18, 90)));
   const retireAge = $derived(Math.round(num(s.stop, age, 85)));
   const endAge = $derived(Math.round(num(s.tot, Math.max(retireAge, age) + 1, 110)));
-  const pensionAge = $derived(Math.round(num(s.start, 60, 75)));
+  // Born this year minus the age: one year off for a birthday still to come,
+  // which only matters right at a boundary year.
+  const legalAge = $derived(legalPensionAge(new Date().getFullYear() - age));
+  const pensionAge = $derived(s.start === null || s.start === undefined ? legalAge : Math.round(num(s.start, 60, 75)));
   const inflation = $derived(num(s.inflatie, 0, 15) / 100);
   const returnPct = $derived.by(() => {
     const w = (MIXES.includes(s.mix) ? Number(s.mix) : 80) / 100;
@@ -69,6 +73,7 @@
     age,
     retireAge,
     pensionAge,
+    legalPensionAge: legalAge,
     endAge,
     inflation,
     portfolio: num(s.vermogen, 0, 1e9),
@@ -134,7 +139,7 @@
     tob: sum((r) => r.tob),
     credit: sum((r) => r.credit),
   });
-  const pillar2Rate = $derived(leviesPillar2(Math.max(pensionAge, 60), retireAge >= pensionAge, pensionAge));
+  const pillar2Rate = $derived(leviesPillar2(Math.max(pensionAge, 60), retireAge >= legalAge, legalAge));
 
   const eurFmt = new Intl.NumberFormat('nl-BE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
   const eurShortFmt = new Intl.NumberFormat('nl-BE', { style: 'currency', currency: 'EUR', notation: 'compact', maximumFractionDigits: 1 });
@@ -369,7 +374,7 @@
     <details open>
       <summary>{t.panel.pension}</summary>
       <NumField id="wettelijk" label={t.fields.statePension} bind:value={s.wettelijk} unit="€" step={50} info={t.fields.statePensionInfo} />
-      <NumField id="start" label={t.fields.pensionAge} bind:value={s.start} unit={t.fields.unitYear} min={60} max={75} info={t.fields.pensionAgeInfo} />
+      <NumField id="start" label={t.fields.pensionAge} bind:value={() => s.start ?? legalAge, (v) => (s.start = v === legalAge ? null : v)} unit={t.fields.unitYear} min={60} max={75} info={t.fields.pensionAgeInfo(legalAge)} />
     </details>
 
     <details open>
@@ -452,7 +457,8 @@
   .calc__main { min-width: 0; display: flex; flex-direction: column; gap: 24px; }
   /* One column: the assumptions come right after the chart, before the notes. */
   @media (max-width: 1040px) {
-    .calc { display: flex; flex-direction: column; gap: 24px; }
+    /* stretch: the grid's align-items: start would shrink each block to its content. */
+    .calc { display: flex; flex-direction: column; align-items: stretch; gap: 24px; }
     .calc__main { display: contents; }
     .panel { order: 1; }
     .below { order: 3; }

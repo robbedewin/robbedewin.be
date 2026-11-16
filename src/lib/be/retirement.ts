@@ -18,6 +18,10 @@ export interface RetirementInputs {
   retireAge: number;
   /** The age at which the statutory pension starts and the second pillar pays out. */
   pensionAge: number;
+  /** The legal pension age for this person's year of birth (legalPensionAge).
+   *  A start before it is an early pension: the second pillar is taxed at the
+   *  higher rate. Defaults to `pensionAge`. */
+  legalPensionAge?: number;
   /** The projection runs until the end of the year before this age. */
   endAge: number;
   inflation: number;
@@ -88,10 +92,15 @@ export interface RetirementResult {
 const LEVY_AGE = 60;
 const LAST_PREMIUM_AGE = 64;
 
+/** The tax reduction for a pension-savings premium under the better of the
+ *  two ceilings (the taxpayer picks one on the tax return). */
+export function bestPensionSavingsCredit(premium: number): number {
+  return Math.max(pensionSavingsCredit(premium, false), pensionSavingsCredit(premium, true));
+}
+
 export function projectRetirement(inp: RetirementInputs): RetirementResult {
   const retireAge = Math.max(inp.retireAge, inp.age);
   const releaseAge = Math.min(Math.max(retireAge, LEVY_AGE), LAST_PREMIUM_AGE + 1);
-  const basicCeiling = PENSION_CONSTANTS.pensioensparen.opties[0].max_premie_eur;
 
   let portfolio = Math.max(inp.portfolio, 0);
   let basis = Math.min(Math.max(inp.portfolioBasis ?? portfolio, 0), portfolio);
@@ -139,7 +148,8 @@ export function projectRetirement(inp: RetirementInputs): RetirementResult {
     }
     // The second pillar pays out when the statutory pension starts.
     if (!pillar2Paid && age >= inp.pensionAge) {
-      const levies = leviesPillar2(Math.max(age, 60), retireAge >= inp.pensionAge, inp.pensionAge);
+      const legalAge = inp.legalPensionAge ?? inp.pensionAge;
+      const levies = leviesPillar2(Math.max(age, 60), retireAge >= legalAge, legalAge);
       row.pillar2Levies = pillar2 * levies;
       row.pillar2Payout = pillar2 - row.pillar2Levies;
       row.tob += buy(row.pillar2Payout);
@@ -153,8 +163,10 @@ export function projectRetirement(inp: RetirementInputs): RetirementResult {
       if (!pillar2Paid) pillar2 += inp.pillar2Yearly * price;
       if (!released && age <= LAST_PREMIUM_AGE) {
         // The ceilings rise with inflation, so the rule is applied in today's euros.
+        // Of the two ceilings, the one that gives the larger reduction: up to
+        // about 1,2 times the basic ceiling, the basic one still pays more.
         const premium = inp.pensionSavingsYearly;
-        row.pensionSavingsCredit = pensionSavingsCredit(premium, premium > basicCeiling) * price;
+        row.pensionSavingsCredit = bestPensionSavingsCredit(premium) * price;
         pensionSavings += Math.min(premium, PENSION_CONSTANTS.pensioensparen.opties[1].max_premie_eur) * price;
         // The tax reduction is invested too.
         row.tob += buy(row.pensionSavingsCredit);

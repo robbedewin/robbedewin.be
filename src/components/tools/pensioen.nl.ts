@@ -50,7 +50,7 @@ export const t = {
     title: 'Belasting over de hele periode',
     pillar2: 'Tweede pijler bij uitkering',
     pillar2Info: (rate: string) =>
-      `Eindbelasting, RIZIV-bijdrage en solidariteitsbijdrage samen: ${rate} van het kapitaal. De eindbelasting is 10 % als u tot de wettelijke pensioenleeftijd werkt, anders 16,5 %.`,
+      `Eindbelasting, RIZIV-bijdrage en solidariteitsbijdrage samen: ${rate} van het kapitaal. De eindbelasting is 10 % als u werkt tot de wettelijke pensioenleeftijd en dan uitkeert, anders 16,5 % (18 % op 61, 20 % op 60).`,
     pensionSavings: 'Pensioensparen op 60 jaar',
     pensionSavingsInfo: 'De anticipatieve heffing van 8 %. Het model neemt ze op het opgebouwde kapitaal; in werkelijkheid hangt de grondslag af van het type product.',
     gains: 'Meerwaardebelasting',
@@ -115,7 +115,8 @@ export const t = {
     statePension: 'Netto per maand',
     statePensionInfo: 'Het bedrag dat mypension.be voor u raamt, in euro van vandaag. Het model raamt uw wettelijk pensioen niet zelf.',
     pensionAge: 'Start op',
-    pensionAgeInfo: '67 jaar voor wie vanaf 1964 geboren is, 66 voor 1960 tot 1963. Op dat moment keert ook de tweede pijler uit. Vervroegd pensioen is niet gemodelleerd.',
+    pensionAgeInfo: (legal: number) =>
+      `Voor uw leeftijd is de wettelijke pensioenleeftijd ${legal} jaar: 67 voor wie vanaf 1964 geboren is, 66 voor 1960 tot 1963. Op dat moment keert ook de tweede pijler uit. Vult u een vroegere leeftijd in (vervroegd pensioen, dat een lange loopbaan vraagt), dan rekent het model de hogere belasting op de tweede pijler; het lagere pensioenbedrag vult u zelf in.`,
     pillar2: 'Kapitaal nu',
     pillar2Info: 'Groepsverzekering, IPT, VAPZ of POZ samen: de verworven reserve op uw pensioenfiche of mypension.be.',
     pillar2Yearly: 'Storting per jaar',
@@ -125,7 +126,7 @@ export const t = {
     pensionSavings: 'Kapitaal nu',
     pensionSavingsYearly: 'Storting per jaar',
     pensionSavingsYearlyInfo: (basic: string, basicRate: string, raised: string, raisedRate: string) =>
-      `Tot ${basic} krijgt u ${basicRate} belastingvermindering; kiest u voor het hoge plafond van ${raised}, dan is dat ${raisedRate} op de hele storting. Stortingen lopen tot en met 64 jaar.`,
+      `Tot ${basic} krijgt u ${basicRate} belastingvermindering; kiest u voor het hoge plafond van ${raised}, dan is dat ${raisedRate} op de hele storting. Het model kiest het plafond dat het meest oplevert. Stortingen lopen tot en met 64 jaar.`,
     pensionSavingsReturn: 'Rendement',
     pensionSavingsReturnInfo: 'Per jaar, na de kosten van het fonds of de verzekering. Die kosten liggen doorgaans hoger dan bij een indexfonds.',
     spending: 'Uitgaven per maand',

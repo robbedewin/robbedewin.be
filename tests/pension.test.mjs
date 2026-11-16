@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  capitalGainsTax, legalPensionAge, leviesPillar2, pensionSavingsCredit,
+  capitalGainsTax, legalPensionAge, leviesPillar2, pensionSavingsCredit, PENSION_CONSTANTS,
 } from '../src/lib/be/pensiontax.ts';
 import { projectRetirement, sustainableSpending } from '../src/lib/be/retirement.ts';
 
@@ -27,6 +27,41 @@ test('capital-gains tax matches Python', () => {
 });
 test('legal pension age matches Python', () => {
   for (const c of ref.legal_age) assert.equal(legalPensionAge(c.born), c.age);
+});
+
+// The projection, against its own tax rules.
+const plan = {
+  age: 55, retireAge: 63, pensionAge: 63, legalPensionAge: 67, endAge: 70, inflation: 0,
+  portfolio: 0, monthlySaving: 0, portfolioReturn: 0, statePensionMonthly: 0,
+  pillar2: 100000, pillar2Yearly: 0, pillar2Return: 0,
+  pensionSavings: 0, pensionSavingsYearly: 0, pensionSavingsReturn: 0,
+  spendingMonthly: 0, capitalGainsRate: 0.1, capitalGainsExemption: 10000, tob: 0,
+};
+const levyAt = (inp, age) => projectRetirement(inp).rows.find((r) => r.age === age).pillar2Levies;
+
+test('an early pension carries the higher second-pillar tax', () => {
+  // 16,5 % final tax + RIZIV + solidarity, not the 10 % of the legal age.
+  close(levyAt(plan, 63), 100000 * leviesPillar2(63, false, 67), 'early at 63');
+  assert.ok(levyAt(plan, 63) > 100000 * 0.2, 'more than 20 % in all');
+  // Working until the legal age and starting then: 10 %.
+  const atLegal = { ...plan, retireAge: 67, pensionAge: 67 };
+  close(levyAt(atLegal, 67), 100000 * leviesPillar2(67, true, 67), 'at the legal age');
+  // Stopping work early but starting the pension at the legal age: no 10 %.
+  const stopsEarly = { ...plan, retireAge: 63, pensionAge: 67 };
+  close(levyAt(stopsEarly, 67), 100000 * leviesPillar2(67, false, 67), 'stopped before the legal age');
+});
+
+test('the pension-savings reduction takes the better ceiling', () => {
+  const [basic, raised] = PENSION_CONSTANTS.pensioensparen.opties;
+  const credit = (premium) =>
+    projectRetirement({ ...plan, age: 40, retireAge: 41, pensionAge: 67, endAge: 41, pensionSavingsYearly: premium })
+      .rows[0].pensionSavingsCredit;
+  // Just above the basic ceiling, the basic ceiling still pays more.
+  const justAbove = basic.max_premie_eur + 50;
+  close(credit(justAbove), basic.max_premie_eur * basic.vermindering, 'just above the basic ceiling');
+  // At the raised ceiling, the raised option pays more.
+  close(credit(raised.max_premie_eur), raised.max_premie_eur * raised.vermindering, 'at the raised ceiling');
+  close(credit(500), 500 * basic.vermindering, 'below the basic ceiling');
 });
 
 // No returns, no inflation, no taxes, no pillars: plain arithmetic.
