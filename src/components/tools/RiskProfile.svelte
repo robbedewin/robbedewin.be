@@ -75,21 +75,23 @@
   });
   const behaviourDone = $derived(count(beh) === beh.length);
 
-  // The link holds the answers, so a result can be bookmarked or sent on.
+  // The address bar holds the answers, so a reload keeps them. Income and
+  // fixed costs go only into the link that "Kopieer link" copies, so they do
+  // not end up in the browser history on their own.
   const encode = (answers: (number | null)[]) => answers.map((a) => (a === null ? '-' : a)).join('');
   const decode = (raw: string | null, options: readonly { a: readonly string[] }[]) =>
     options.map((item, i) => {
       const n = Number(raw?.[i]);
       return raw?.[i] !== undefined && raw[i] !== '-' && Number.isInteger(n) && n < item.a.length ? n : null;
     });
-  function query() {
+  function query(full: boolean) {
     const q = new URLSearchParams();
     if (count(tol)) q.set('t', encode(tol));
     if (count(beh)) q.set('b', encode(beh));
     if (given(horizon)) q.set('h', String(horizon));
     if (stability) q.set('s', stability);
-    if (given(income)) q.set('i', String(income));
-    if (given(costs)) q.set('k', String(costs));
+    if (full && given(income)) q.set('i', String(income));
+    if (full && given(costs)) q.set('k', String(costs));
     return q.toString();
   }
   onMount(() => {
@@ -110,16 +112,17 @@
     ready = true;
   });
   $effect(() => {
-    const q = query();
+    const q = query(false);
     if (ready) history.replaceState(null, '', q ? `?${q}` : location.pathname);
   });
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(location.href);
+      const q = query(true);
+      await navigator.clipboard.writeText(`${location.origin}${location.pathname}${q ? `?${q}` : ''}`);
       copied = true;
       setTimeout(() => (copied = false), 2000);
     } catch {
-      // No clipboard access: the address bar already holds the link.
+      // No clipboard access: the address bar holds the link, without income and costs.
     }
   }
   function reset() {
@@ -435,6 +438,12 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     color: var(--fg);
+    white-space: nowrap;
+  }
+  /* Phone: the row labels wrap so the ranges keep one line. */
+  @media (max-width: 480px) {
+    .grid th[scope='row'] { white-space: normal; }
+    .grid tbody td { font-size: 12px; padding: 0 2px; }
   }
   .grid td.current { outline: 2px solid var(--fg); outline-offset: -2px; font-weight: 700; }
   .axes { display: flex; justify-content: space-between; margin-top: 4px; font: 11px var(--font-mono); color: var(--fg-muted); }

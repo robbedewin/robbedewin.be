@@ -105,10 +105,17 @@
       {/each}
       {#if marker && marker.year >= years[0] && marker.year <= years[n - 1]}
         {@const mx = x(marker.year - years[0])}
+        <!-- The label goes right of the line if it fits, else left; never over
+             the axis labels. 11px mono is about 6.7px a character. -->
+        {@const tw = marker.label.length * 6.7}
+        {@const right = mx + 6 + tw <= W - R}
         <line class="marker" x1={mx} x2={mx} y1={T} y2={H - B} />
-        <text class="tick" x={mx > W - 140 ? mx - 6 : mx + 6} y={T + 10} text-anchor={mx > W - 140 ? 'end' : 'start'}>
-          {marker.label}
-        </text>
+        <text
+          class="tick"
+          x={right ? mx + 6 : Math.max(mx - 6, L + 6 + tw)}
+          y={T + 10}
+          text-anchor={right ? 'start' : 'end'}
+        >{marker.label}</text>
       {/if}
       <line class="guide" x1={x(idx)} x2={x(idx)} y1={T} y2={H - B} />
       {#each series as s}

@@ -198,7 +198,7 @@ export const t = {
       'De vier vragen over gedrag zijn van mezelf en tellen niet mee in de score.',
       'De capaciteit volgt de regel uit mijn planningsmotor: beperkt bij een horizon onder 5 jaar, lasten boven het inkomen, of een onzeker inkomen met een horizon onder 10 jaar. Ruim vraagt minstens 15 jaar, een voldoende zeker inkomen en een marge van minstens 10 % van het inkomen.',
       'De mix is een afspraak van deze pagina: elk niveau van tolerantie staat voor een vork van 20 procentpunten aandelen, en de capaciteit legt er een plafond op (40 % bij beperkt, 80 % bij gemiddeld).',
-      'Uw antwoorden blijven in uw browser. Ze staan alleen in de link als u die zelf kopieert.',
+      'Uw antwoorden blijven in uw browser; er gaat niets naar een server. De adresbalk houdt uw antwoorden bij, zodat ze een herladen overleven. Uw inkomen en vaste lasten komen alleen in de link als u op Kopieer link klikt.',
     ],
     disclaimer: 'Algemene informatie, geen persoonlijk advies. De test noemt geen producten en vervangt geen gesprek met een adviseur.',
   },

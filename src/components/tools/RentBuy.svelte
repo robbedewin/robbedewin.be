@@ -470,7 +470,8 @@
   .calc__main { min-width: 0; display: flex; flex-direction: column; gap: 24px; }
   /* One column: the assumptions come right after the chart, before the notes. */
   @media (max-width: 1040px) {
-    .calc { display: flex; flex-direction: column; gap: 24px; }
+    /* stretch: the grid's align-items: start would shrink each block to its content. */
+    .calc { display: flex; flex-direction: column; align-items: stretch; gap: 24px; }
     .calc__main { display: contents; }
     .panel { order: 1; }
     .cards { order: 2; }
