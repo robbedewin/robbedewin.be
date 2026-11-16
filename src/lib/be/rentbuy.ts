@@ -195,3 +195,22 @@ export function projectCashflows(inp: RentBuyInputs): RentBuyResult {
     verdict,
   };
 }
+
+export type TippingInput = 'monthlyRent' | 'investmentReturn' | 'houseGrowthPct';
+
+/** The value of one input at which buying and renting end level at the
+ *  horizon, searched between `lo` and `hi`; null when they do not cross
+ *  there. The advantage moves one way with each of these inputs. */
+export function breakEven(inp: RentBuyInputs, key: TippingInput, lo: number, hi: number): number | null {
+  const adv = (x: number) => projectCashflows({ ...inp, [key]: x }).advantageToBuyer;
+  let a = lo;
+  let b = hi;
+  const fa = adv(a);
+  if (Math.sign(fa) === Math.sign(adv(b))) return null;
+  for (let i = 0; i < 60; i++) {
+    const m = (a + b) / 2;
+    if (Math.sign(adv(m)) === Math.sign(fa)) a = m;
+    else b = m;
+  }
+  return (a + b) / 2;
+}

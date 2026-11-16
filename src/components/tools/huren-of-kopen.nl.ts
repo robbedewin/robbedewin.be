@@ -77,6 +77,31 @@ export const t = {
     interest: 'Intrest over de hele looptijd',
   },
 
+  tipping: {
+    title: 'Wat de doorslag geeft',
+    info: (years: number) =>
+      `Elk cijfer is de waarde waarbij kopen en huren na ${years} jaar gelijk eindigen, met alle andere aannames zoals ze staan. Ligt uw eigen verwachting aan de andere kant, dan draait de uitkomst om.`,
+    rent: 'Huur per maand',
+    ret: 'Rendement na kosten',
+    growth: 'Stijging huizenprijzen',
+    now: (value: string) => `(nu ${value})`,
+    none: 'buiten bereik',
+  },
+  owning: {
+    title: 'Wat kopen kost in het eerste jaar',
+    info: 'De vuistregel van Ben Felix (PWL Capital), met Belgische cijfers: wat eigenaar zijn per jaar kost en u nooit terugkrijgt, in euro van vandaag, tegenover de huur. De aflossing telt niet mee, want die bouwt vermogen op. Rente en rendement staan na inflatie, de waardestijging telt op de hele woning. Een snelle toets naast het jaar-na-jaarmodel erboven, dat de belasting, de verkoopkosten en de lening precies volgt.',
+    propertyTax: 'Onroerende voorheffing',
+    maintenance: 'Onderhoud',
+    insurance: 'Brandverzekering',
+    debt: 'Rente na inflatie',
+    equity: 'Rendement op de eigen inbreng',
+    purchase: (years: number) => `Aankoopkosten, gespreid over ${years} jaar`,
+    growth: 'Waardestijging boven inflatie',
+    total: 'Samen',
+    rent: 'Huur per jaar',
+    note: 'Een momentopname van het eerste jaar. Het jaar-na-jaarmodel hierboven telt ook mee dat elke aflossing geld in de woning steekt dat anders belegd zou zijn, en de verkoopkosten en de meerwaardebelasting; daarom kan het anders uitkomen.',
+  },
+
   panel: {
     title: 'Aannames',
     general: 'Algemeen',

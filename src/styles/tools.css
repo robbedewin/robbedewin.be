@@ -148,3 +148,5 @@
 @media (max-width: 1040px) {
   .calc .cards { order: 2; }
 }
+.calc .card h2 .info { margin-left: 6px; }
+.calc .list .now { font-size: 12px; font-family: var(--font-mono); }

@@ -173,7 +173,26 @@ credit = [
     for sole in (True, False)
 ]
 
-out = {"cashflow": cases, "purchase": purchase, "credit": credit}
+# The yearly cost of owning (the plan's 5 %-rule section), in today's euros.
+from shared.rentbuy.eigen_woning import kost_van_kopen  # noqa: E402
+
+owning = []
+for kw in (
+    dict(waarde_eur=400_000, huur_per_maand_eur=1_300, voorheffing_pct=0.003, onderhoud_pct=0.01,
+         inbreng_pct=0.2, rentevoet=0.034, inflatie=0.02, opbrengst_pct=0.04,
+         aankoopkosten_eur=21_842, jaren=30, groei_pct=0.01),
+    dict(waarde_eur=250_000, huur_per_maand_eur=900, voorheffing_pct=0.012, onderhoud_pct=0.015,
+         inbreng_pct=0.1, rentevoet=0.04, inflatie=0.025, opbrengst_pct=0.05,
+         aankoopkosten_eur=15_000, jaren=10, groei_pct=None),
+    dict(waarde_eur=600_000, huur_per_maand_eur=2_400, voorheffing_pct=0.004, onderhoud_pct=0.008,
+         inbreng_pct=1.0, rentevoet=0.03, inflatie=0.02, opbrengst_pct=0.03,
+         aankoopkosten_eur=40_000, jaren=1, groei_pct=0.0),
+):
+    k = kost_van_kopen(**kw)
+    owning.append({"inputs": kw, "totaal_eur": round(k.totaal_eur, 6), "uitkomst": k.uitkomst.value,
+                   "groei_pct": k.groei_pct})
+
+out = {"cashflow": cases, "purchase": purchase, "credit": credit, "owning": owning}
 (ROOT / "tests/fixtures/rentbuy-reference.json").write_text(json.dumps(out) + "\n")
 print(f"{len(cases)} cash-flow cases, {len(purchase)} purchase-cost cases")
 for c in cases:

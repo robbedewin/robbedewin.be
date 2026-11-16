@@ -3,7 +3,8 @@
   import { eur, eurShort, pct } from './format.nl.ts';
   import { copyText, readQuery, writeQuery } from '../../lib/url-state.ts';
   import { onMount } from 'svelte';
-  import { projectCashflows, type RentBuyInputs } from '../../lib/be/rentbuy.ts';
+  import { breakEven, projectCashflows, type RentBuyInputs } from '../../lib/be/rentbuy.ts';
+  import { owningCost } from '../../lib/be/owning.ts';
   import { creditDeedCost, LAST_VERIFIED, notaryFeePurchase, registrationRule, type Region } from '../../lib/be/realestate.ts';
   import Info from './Info.svelte';
   import LineChart from './LineChart.svelte';
@@ -114,6 +115,31 @@
   const creditDefault = $derived(Math.round(creditDeedCost(inputs.price * (1 - inputs.downPaymentPct), inputs.soleOwnHome)));
   const regDefault = $derived(Math.round(regRule.rate * 10000) / 100);
   const res = $derived(projectCashflows(inputs));
+  // Where the outcome tips: each of three inputs at which buying and renting
+  // end level, the others as they are.
+  const tipping = $derived({
+    rent: breakEven(inputs, 'monthlyRent', 0, (inputs.price * 0.15) / 12),
+    ret: breakEven(inputs, 'investmentReturn', -0.05, 0.25),
+    growth: breakEven(inputs, 'houseGrowthPct', -0.08, 0.15),
+  });
+  // The yearly cost of owning in today's euros (PWL's framing), with the
+  // page's returns and growth taken above inflation.
+  const owning = $derived(
+    owningCost({
+      value: inputs.price,
+      rentMonthly: inputs.monthlyRent,
+      propertyTaxPct: inputs.propertyTaxPct,
+      maintenancePct: inputs.maintenancePct,
+      insurancePct: inputs.insurancePct,
+      downPaymentPct: inputs.downPaymentPct,
+      mortgageRate: inputs.mortgageRate,
+      inflation,
+      realReturn: (1 + inputs.investmentReturn) / (1 + inflation) - 1,
+      purchaseCosts: res.upfrontCosts,
+      years: horizon,
+      realGrowth: (1 + inputs.houseGrowthPct) / (1 + inflation) - 1,
+    }),
+  );
 
   // The engine works in the euros of each year; "today's euros" divides each
   // year by the inflation up to then. It scales both sides alike, so the
@@ -322,6 +348,38 @@
             <dd>{eur(Math.max(res.monthlyPayment * inputs.mortgageTermYears * 12 - res.loan, 0))}</dd>
           </div>
         </dl>
+      </section>
+      <section class="card">
+        <h2>{t.tipping.title} <Info text={t.tipping.info(horizon)} /></h2>
+        <dl class="list">
+          <div>
+            <dt>{t.tipping.rent} <span class="now">{t.tipping.now(eur(inputs.monthlyRent))}</span></dt>
+            <dd>{tipping.rent === null ? t.tipping.none : eur(tipping.rent)}</dd>
+          </div>
+          <div>
+            <dt>{t.tipping.ret} <span class="now">{t.tipping.now(pct(inputs.investmentReturn))}</span></dt>
+            <dd>{tipping.ret === null ? t.tipping.none : pct(tipping.ret, 2)}</dd>
+          </div>
+          <div>
+            <dt>{t.tipping.growth} <span class="now">{t.tipping.now(pct(inputs.houseGrowthPct))}</span></dt>
+            <dd>{tipping.growth === null ? t.tipping.none : pct(tipping.growth, 2)}</dd>
+          </div>
+        </dl>
+      </section>
+      <section class="card">
+        <h2>{t.owning.title} <Info text={t.owning.info} /></h2>
+        <dl class="list">
+          <div><dt>{t.owning.propertyTax}</dt><dd>{eur(owning.propertyTax)}</dd></div>
+          <div><dt>{t.owning.maintenance}</dt><dd>{eur(owning.maintenance)}</dd></div>
+          {#if owning.insurance}<div><dt>{t.owning.insurance}</dt><dd>{eur(owning.insurance)}</dd></div>{/if}
+          <div><dt>{t.owning.debt}</dt><dd>{eur(owning.debtCost)}</dd></div>
+          <div><dt>{t.owning.equity}</dt><dd>{eur(owning.equityCost)}</dd></div>
+          <div><dt>{t.owning.purchase(horizon)}</dt><dd>{eur(owning.purchasePerYear)}</dd></div>
+          <div><dt>{t.owning.growth}</dt><dd>{eur(-owning.growth)}</dd></div>
+          <div class="total"><dt>{t.owning.total}</dt><dd>{eur(owning.total)}</dd></div>
+          <div><dt>{t.owning.rent}</dt><dd>{eur(owning.rent)}</dd></div>
+        </dl>
+        <p class="unit">{t.owning.note}</p>
       </section>
     </div>
 

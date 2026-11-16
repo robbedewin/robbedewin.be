@@ -6,7 +6,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { creditDeedCost, notaryFeePurchase, registratierechten, registrationRule } from '../src/lib/be/realestate.ts';
-import { projectCashflows } from '../src/lib/be/rentbuy.ts';
+import { breakEven, projectCashflows } from '../src/lib/be/rentbuy.ts';
+import { owningCost } from '../src/lib/be/owning.ts';
 
 const ref = JSON.parse(readFileSync(new URL('./fixtures/rentbuy-reference.json', import.meta.url)));
 const close = (a, b, what) =>
@@ -122,4 +123,34 @@ test('capital-gains tax on the invested money, never on the home', () => {
   // Gains below the exemption are free.
   const small = projectCashflows({ ...base, horizonYears: 1, capitalGainsRate: 0.1, capitalGainsExemption: 1e9 });
   assert.equal(small.schedule[0].renterGainsTax, 0);
+});
+
+test('the yearly cost of owning matches Python', () => {
+  for (const c of ref.owning) {
+    const p = c.inputs;
+    const res = owningCost({
+      value: p.waarde_eur, rentMonthly: p.huur_per_maand_eur, propertyTaxPct: p.voorheffing_pct,
+      maintenancePct: p.onderhoud_pct, downPaymentPct: p.inbreng_pct, mortgageRate: p.rentevoet,
+      inflation: p.inflatie, realReturn: p.opbrengst_pct, purchaseCosts: p.aankoopkosten_eur,
+      years: p.jaren, realGrowth: p.groei_pct ?? undefined,
+    });
+    close(res.total, c.totaal_eur, `total ${p.waarde_eur}`);
+    assert.equal(res.verdict, { aanhouden: 'kopen', verkopen: 'huren', pariteit: 'pariteit' }[c.uitkomst]);
+  }
+});
+
+test('break-even inputs level buying and renting', () => {
+  const base = {
+    price: 400_000, monthlyRent: 1_300, mortgageRate: 0.034, downPaymentPct: 0.2,
+    investmentReturn: 0.061, propertyTaxPct: 0.003, maintenancePct: 0.01, insurancePct: 0.001,
+    costGrowthPct: 0.02, mortgageTermYears: 25, horizonYears: 30, houseGrowthPct: 0.03,
+    rentGrowthPct: 0.02, sellingCostPct: 0.03, region: 'VL', soleOwnHome: true,
+  };
+  for (const [key, lo, hi] of [['monthlyRent', 0, 5000], ['investmentReturn', -0.05, 0.2], ['houseGrowthPct', -0.05, 0.15]]) {
+    const x = breakEven(base, key, lo, hi);
+    assert.ok(x !== null, key);
+    const adv = projectCashflows({ ...base, [key]: x }).advantageToBuyer;
+    assert.ok(Math.abs(adv) < 1, `${key}: advantage ${adv} at ${x}`);
+  }
+  assert.equal(breakEven(base, 'monthlyRent', 0, 1), null, 'no crossing in range');
 });
