@@ -1,0 +1,600 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { leviesPillar2, PENSION_CONSTANTS } from '../../lib/be/pensiontax.ts';
+  import { projectRetirement, sustainableSpending, type RetirementInputs } from '../../lib/be/retirement.ts';
+  import Info from './Info.svelte';
+  import LineChart from './LineChart.svelte';
+  import NumField from './NumField.svelte';
+  import { t } from './pensioen.nl.ts';
+  import returns from '../../data/returns.json';
+
+  const C = PENSION_CONSTANTS;
+  // Long-run returns with inflation included, in %, from the plan engine.
+  const nominalPct = (real: number) => Math.round((real + returns.inflation) * 1000) / 10;
+
+  // Percentages are held the way they are typed. The keys double as the
+  // names in the shareable link.
+  const DEFAULTS = {
+    leeftijd: 35,
+    stop: 65,
+    tot: 95,
+    uitgaven: 2500,
+    vermogen: 50000,
+    sparen: 500,
+    mix: '80' as string,
+    aandelen: nominalPct(returns.equity_real),
+    obligaties: nominalPct(returns.bond_real),
+    voorzichtig: 2,
+    inflatie: 2,
+    reeel: true,
+    wettelijk: 1800,
+    start: C.wettelijk_pensioen.leeftijd_2030,
+    p2: 20000,
+    p2storting: 2000,
+    p2rendement: 2,
+    ps: 5000,
+    psstorting: C.pensioensparen.opties[0].max_premie_eur,
+    psrendement: 4,
+    mwb: C.meerwaardebelasting.tarief * 100,
+    vrijstelling: C.meerwaardebelasting.vrijstelling_eur,
+    tob: Math.round(C.tob_etf * 10000) / 100,
+  };
+  type Key = keyof typeof DEFAULTS;
+  const KEYS = Object.keys(DEFAULTS) as Key[];
+  const MIXES = ['100', '80', '60', '40', '20', '0'];
+
+  let s = $state<Record<Key, any>>({ ...DEFAULTS });
+  let tab = $state<'vermogen' | 'opbouw' | 'inkomen' | 'belasting' | 'tabel'>('vermogen');
+  let ready = $state(false);
+  let copied = $state(false);
+
+  // An empty or half-typed field counts as its lowest allowed value.
+  const num = (v: unknown, lo: number, hi: number) => {
+    const x = Number(v ?? 0);
+    return Number.isFinite(x) ? Math.min(Math.max(x, lo), hi) : lo;
+  };
+
+  const age = $derived(Math.round(num(s.leeftijd, 18, 90)));
+  const retireAge = $derived(Math.round(num(s.stop, age, 85)));
+  const endAge = $derived(Math.round(num(s.tot, Math.max(retireAge, age) + 1, 110)));
+  const pensionAge = $derived(Math.round(num(s.start, 60, 75)));
+  const inflation = $derived(num(s.inflatie, 0, 15) / 100);
+  const returnPct = $derived.by(() => {
+    const w = (MIXES.includes(s.mix) ? Number(s.mix) : 80) / 100;
+    return w * num(s.aandelen, -10, 20) + (1 - w) * num(s.obligaties, -10, 20);
+  });
+  const cautiousPts = $derived(num(s.voorzichtig, 0, 10));
+
+  const inputs = $derived<RetirementInputs>({
+    age,
+    retireAge,
+    pensionAge,
+    endAge,
+    inflation,
+    portfolio: num(s.vermogen, 0, 1e9),
+    monthlySaving: num(s.sparen, 0, 1e6),
+    portfolioReturn: returnPct / 100,
+    statePensionMonthly: num(s.wettelijk, 0, 1e5),
+    pillar2: num(s.p2, 0, 1e9),
+    pillar2Yearly: num(s.p2storting, 0, 1e6),
+    pillar2Return: num(s.p2rendement, -5, 15) / 100,
+    pensionSavings: num(s.ps, 0, 1e8),
+    pensionSavingsYearly: num(s.psstorting, 0, C.pensioensparen.opties[1].max_premie_eur),
+    pensionSavingsReturn: num(s.psrendement, -5, 15) / 100,
+    spendingMonthly: num(s.uitgaven, 0, 1e6),
+    capitalGainsRate: num(s.mwb, 0, 50) / 100,
+    capitalGainsExemption: num(s.vrijstelling, 0, 1e7),
+    tob: num(s.tob, 0, 5) / 100,
+  });
+  const res = $derived(projectRetirement(inputs));
+  // The same plan with less return on what is invested in markets; the
+  // second pillar keeps its own rate.
+  const cautious = $derived(
+    projectRetirement({
+      ...inputs,
+      portfolioReturn: inputs.portfolioReturn - cautiousPts / 100,
+      pensionSavingsReturn: inputs.pensionSavingsReturn - cautiousPts / 100,
+    }),
+  );
+  const sustainable = $derived(sustainableSpending(inputs));
+
+  // The engine works in the euros of each year. In today's euros a balance
+  // is divided by the price level at the end of its year, a flow by the level
+  // at the start.
+  const rows = $derived(
+    res.rows.map((r, i) => {
+      const b = s.reeel ? 1 / r.priceEnd : 1;
+      const f = s.reeel ? 1 / r.priceStart : 1;
+      return {
+        age: r.age,
+        total: r.total * b,
+        cautious: cautious.rows[i].total * b,
+        portfolio: r.portfolio * b,
+        pillar2: r.pillar2 * b,
+        pensionSavings: r.pensionSavings * b,
+        saved: r.saved * f,
+        spending: r.spending * f,
+        statePension: r.statePension * f,
+        withdrawal: r.withdrawal * f,
+        pillar2Levies: r.pillar2Levies * f,
+        pensionSavingsLevy: r.pensionSavingsLevy * f,
+        capitalGainsTax: r.capitalGainsTax * f,
+        tob: r.tob * f,
+        credit: r.pensionSavingsCredit * f,
+      };
+    }),
+  );
+  const last = $derived(rows[rows.length - 1]);
+  const atRetirement = $derived(res.wealthAtRetirement / (s.reeel ? res.priceAtRetirement : 1));
+  const sum = (pick: (r: (typeof rows)[number]) => number) => rows.reduce((a, r) => a + pick(r), 0);
+  const taxes = $derived({
+    pillar2: sum((r) => r.pillar2Levies),
+    pensionSavings: sum((r) => r.pensionSavingsLevy),
+    gains: sum((r) => r.capitalGainsTax),
+    tob: sum((r) => r.tob),
+    credit: sum((r) => r.credit),
+  });
+  const pillar2Rate = $derived(leviesPillar2(Math.max(pensionAge, 60), retireAge >= pensionAge, pensionAge));
+
+  const eurFmt = new Intl.NumberFormat('nl-BE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+  const eurShortFmt = new Intl.NumberFormat('nl-BE', { style: 'currency', currency: 'EUR', notation: 'compact', maximumFractionDigits: 1 });
+  const eur = (v: number) => eurFmt.format(Math.round(v));
+  const eurShort = (v: number) => eurShortFmt.format(v);
+  const pct = (x: number, d = 1) => `${(x * 100).toFixed(d).replace('.', ',')} %`;
+  const whole = (x: number) => pct(x, Number.isInteger(Math.round(x * 10000) / 100) ? 0 : 1);
+
+  const verdictText = $derived.by(() => {
+    const spending = eur(inputs.spendingMonthly);
+    const parts = [
+      res.depletionAge === null
+        ? t.verdict.lasts(spending, endAge, eur(last.total))
+        : t.verdict.runsOut(spending, res.depletionAge),
+      t.verdict.sustainable(eur(sustainable), endAge),
+    ];
+    if (retireAge < pensionAge) parts.push(t.verdict.gap(retireAge, pensionAge));
+    return parts.join(' ');
+  });
+
+  // Shareable link: only the values that differ from the defaults.
+  function query() {
+    const q = new URLSearchParams();
+    for (const k of KEYS) {
+      const v = s[k];
+      if (v === DEFAULTS[k] || v === null || v === undefined || v === '') continue;
+      q.set(k, typeof v === 'boolean' ? (v ? '1' : '0') : String(v));
+    }
+    return q.toString();
+  }
+  onMount(() => {
+    const q = new URLSearchParams(location.search);
+    for (const k of KEYS) {
+      const raw = q.get(k);
+      if (raw === null) continue;
+      const d = DEFAULTS[k];
+      if (typeof d === 'boolean') s[k] = raw === '1';
+      else if (k === 'mix') { if (MIXES.includes(raw)) s[k] = raw; }
+      else if (raw !== '' && Number.isFinite(Number(raw))) s[k] = Number(raw);
+    }
+    ready = true;
+  });
+  $effect(() => {
+    const q = query();
+    if (ready) history.replaceState(null, '', q ? `?${q}` : location.pathname);
+  });
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(location.href);
+      copied = true;
+      setTimeout(() => (copied = false), 2000);
+    } catch {
+      // No clipboard access: the address bar already holds the link.
+    }
+  }
+  const reset = () => { s = { ...DEFAULTS }; };
+
+  const TABS = ['vermogen', 'opbouw', 'inkomen', 'belasting', 'tabel'] as const;
+  const ages = $derived(rows.map((r) => r.age));
+  const unitNote = $derived(s.reeel ? t.tiles.real : t.tiles.nominal);
+  const retireMarker = $derived(retireAge > age ? { year: retireAge, label: t.chart.retire } : null);
+  const assetSource = `${returns.source}, ${returns.period}`;
+  const verified = Object.values(C.last_verified).sort();
+</script>
+
+<div class="calc">
+  <div class="calc__main">
+    <dl class="tiles">
+      <div>
+        <dt>{t.tiles.atRetirement(retireAge)}</dt>
+        <dd>{eur(atRetirement)}</dd>
+        <dd class="sub">{unitNote}</dd>
+      </div>
+      <div>
+        <dt>{t.tiles.lasts}</dt>
+        <dd class="accent">{res.depletionAge === null ? t.tiles.lastsBeyond(endAge) : t.tiles.lastsAge(res.depletionAge)}</dd>
+        <dd class="sub">{t.tiles.lastsSub(eur(inputs.spendingMonthly))}</dd>
+      </div>
+      <div>
+        <dt>{t.tiles.sustainable}</dt>
+        <dd>{eur(sustainable)}</dd>
+        <dd class="sub">{t.tiles.sustainableSub(endAge)}</dd>
+      </div>
+      <div>
+        <dt>{t.tiles.atEnd(endAge)}</dt>
+        <dd>{eur(last.total)}</dd>
+        <dd class="sub">{unitNote}</dd>
+      </div>
+    </dl>
+
+    <p class="verdict" aria-live="polite">{verdictText}</p>
+
+    <section class="card">
+      <div class="tabs" role="tablist" aria-label={t.title}>
+        {#each TABS as name}
+          <button
+            type="button"
+            role="tab"
+            id="tab-{name}"
+            aria-selected={tab === name}
+            aria-controls="tabpanel"
+            onclick={() => (tab = name)}
+          >{t.tabs[name]}</button>
+        {/each}
+      </div>
+      <div id="tabpanel" role="tabpanel" aria-labelledby="tab-{tab}">
+        {#if tab === 'vermogen'}
+          <LineChart
+            years={ages}
+            series={[
+              { label: t.chart.expected, values: rows.map((r) => r.total), tone: 'a' },
+              { label: t.chart.cautious(`${String(cautiousPts).replace('.', ',')} punt`), values: rows.map((r) => r.cautious), tone: 'b' },
+            ]}
+            label={t.chart.vermogenLabel}
+            hint={t.chart.hint}
+            format={eur}
+            formatShort={eurShort}
+            yearLabel={t.chart.age}
+            marker={retireMarker}
+          />
+        {:else if tab === 'opbouw'}
+          <LineChart
+            years={ages}
+            series={[
+              { label: t.chart.portfolio, values: rows.map((r) => r.portfolio), tone: 'a' },
+              { label: t.chart.pillar2, values: rows.map((r) => r.pillar2), tone: 'b' },
+              { label: t.chart.pensionSavings, values: rows.map((r) => r.pensionSavings), tone: 'c' },
+            ]}
+            label={t.chart.opbouwLabel}
+            hint={t.chart.hint}
+            format={eur}
+            formatShort={eurShort}
+            yearLabel={t.chart.age}
+            marker={retireMarker}
+          />
+        {:else if tab === 'inkomen'}
+          <LineChart
+            years={ages}
+            series={[
+              { label: t.chart.spending, values: rows.map((r) => r.spending), tone: 'a' },
+              { label: t.chart.statePension, values: rows.map((r) => r.statePension), tone: 'b' },
+              { label: t.chart.withdrawal, values: rows.map((r) => r.withdrawal), tone: 'c' },
+            ]}
+            label={t.chart.inkomenLabel}
+            hint={t.chart.hint}
+            format={eur}
+            formatShort={eurShort}
+            yearLabel={t.chart.age}
+            marker={retireMarker}
+          />
+        {:else if tab === 'belasting'}
+          <dl class="list">
+            <div><dt>{t.tax.pillar2} <Info text={t.tax.pillar2Info(pct(pillar2Rate, 2))} /></dt><dd>{eur(taxes.pillar2)}</dd></div>
+            <div><dt>{t.tax.pensionSavings} <Info text={t.tax.pensionSavingsInfo} /></dt><dd>{eur(taxes.pensionSavings)}</dd></div>
+            <div><dt>{t.tax.gains} <Info text={t.tax.gainsInfo} /></dt><dd>{eur(taxes.gains)}</dd></div>
+            <div><dt>{t.tax.tob} <Info text={t.tax.tobInfo} /></dt><dd>{eur(taxes.tob)}</dd></div>
+            <div class="total"><dt>{t.tax.total}</dt><dd>{eur(taxes.pillar2 + taxes.pensionSavings + taxes.gains + taxes.tob)}</dd></div>
+            <div><dt>{t.tax.credit} <Info text={t.tax.creditInfo} /></dt><dd>{eur(taxes.credit)}</dd></div>
+          </dl>
+        {:else}
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>{t.table.age}</th>
+                  <th>{t.table.saved}</th>
+                  <th>{t.table.spending}</th>
+                  <th>{t.table.statePension}</th>
+                  <th>{t.table.withdrawal}</th>
+                  <th>{t.table.portfolio}</th>
+                  <th>{t.table.pillar2}</th>
+                  <th>{t.table.pensionSavings}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each rows as r}
+                  <tr>
+                    <td>{r.age}</td>
+                    <td>{eur(r.saved)}</td>
+                    <td>{eur(r.spending)}</td>
+                    <td>{eur(r.statePension)}</td>
+                    <td>{eur(r.withdrawal)}</td>
+                    <td>{eur(r.portfolio)}</td>
+                    <td>{eur(r.pillar2)}</td>
+                    <td>{eur(r.pensionSavings)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {/if}
+        <p class="unit">{unitNote}</p>
+      </div>
+    </section>
+
+    <div class="below">
+      <details class="about">
+        <summary>{t.notes.title}</summary>
+        <p>{t.notes.how}</p>
+        <ul>
+          {#each t.notes.items as item}<li>{item}</li>{/each}
+        </ul>
+        <p>{t.notes.verified(`${verified[0]} en ${verified[verified.length - 1]}`)}</p>
+      </details>
+      <p class="disclaimer">{t.notes.disclaimer}</p>
+    </div>
+  </div>
+
+  <form class="panel" aria-label={t.panel.title} onsubmit={(e) => e.preventDefault()}>
+    <div class="panel__head">
+      <h2>{t.panel.title}</h2>
+      <div class="panel__actions">
+        <button type="button" class="link" onclick={reset}>{t.panel.reset}</button>
+        <button type="button" class="link" onclick={copyLink}>
+          <span aria-live="polite">{copied ? t.panel.copied : t.panel.copy}</span>
+        </button>
+      </div>
+    </div>
+
+    <details open>
+      <summary>{t.panel.you}</summary>
+      <NumField id="leeftijd" label={t.fields.age} bind:value={s.leeftijd} unit={t.fields.unitYear} min={18} max={90} />
+      <NumField id="stop" label={t.fields.retireAge} bind:value={s.stop} unit={t.fields.unitYear} min={18} max={85} info={t.fields.retireAgeInfo} />
+      <NumField id="tot" label={t.fields.endAge} bind:value={s.tot} unit={t.fields.unitYear} min={50} max={110} info={t.fields.endAgeInfo} />
+    </details>
+
+    <details open>
+      <summary>{t.panel.spending}</summary>
+      <NumField id="uitgaven" label={t.fields.spending} bind:value={s.uitgaven} unit="€" step={100} info={t.fields.spendingInfo} />
+    </details>
+
+    <details open>
+      <summary>{t.panel.pension}</summary>
+      <NumField id="wettelijk" label={t.fields.statePension} bind:value={s.wettelijk} unit="€" step={50} info={t.fields.statePensionInfo} />
+      <NumField id="start" label={t.fields.pensionAge} bind:value={s.start} unit={t.fields.unitYear} min={60} max={75} info={t.fields.pensionAgeInfo} />
+    </details>
+
+    <details open>
+      <summary>{t.panel.invest}</summary>
+      <NumField id="vermogen" label={t.fields.portfolio} bind:value={s.vermogen} unit="€" step={1000} info={t.fields.portfolioInfo} />
+      <NumField id="sparen" label={t.fields.saving} bind:value={s.sparen} unit="€" step={50} info={t.fields.savingInfo} />
+    </details>
+
+    <details open>
+      <summary>{t.panel.pillar2}</summary>
+      <NumField id="p2" label={t.fields.pillar2} bind:value={s.p2} unit="€" step={1000} info={t.fields.pillar2Info} />
+      <NumField id="p2storting" label={t.fields.pillar2Yearly} bind:value={s.p2storting} unit="€" step={100} info={t.fields.pillar2YearlyInfo} />
+      <NumField id="p2rendement" label={t.fields.pillar2Return} bind:value={s.p2rendement} unit="%" step={0.1} min={-5} info={t.fields.pillar2ReturnInfo} />
+    </details>
+
+    <details open>
+      <summary>{t.panel.pensionSavings}</summary>
+      <NumField id="ps" label={t.fields.pensionSavings} bind:value={s.ps} unit="€" step={500} />
+      <NumField
+        id="psstorting"
+        label={t.fields.pensionSavingsYearly}
+        bind:value={s.psstorting}
+        unit="€"
+        step={10}
+        max={C.pensioensparen.opties[1].max_premie_eur}
+        info={t.fields.pensionSavingsYearlyInfo(
+          eur(C.pensioensparen.opties[0].max_premie_eur), whole(C.pensioensparen.opties[0].vermindering),
+          eur(C.pensioensparen.opties[1].max_premie_eur), whole(C.pensioensparen.opties[1].vermindering),
+        )}
+      />
+      <NumField id="psrendement" label={t.fields.pensionSavingsReturn} bind:value={s.psrendement} unit="%" step={0.1} min={-5} info={t.fields.pensionSavingsReturnInfo} />
+    </details>
+
+    <details open>
+      <summary>{t.panel.returns}</summary>
+      <div class="selectrow">
+        <div class="lab">
+          <label for="mix">{t.fields.mix}</label>
+          <Info text={t.fields.mixInfo} />
+        </div>
+        <select id="mix" bind:value={s.mix}>
+          {#each MIXES as m}<option value={m}>{t.fields.mixOption(Number(m))}</option>{/each}
+        </select>
+      </div>
+      <NumField id="aandelen" label={t.fields.equity} bind:value={s.aandelen} unit="%" step={0.1} min={-10}
+        info={t.fields.assetInfo(pct(returns.equity_real), pct(returns.inflation, 0), assetSource)} />
+      <NumField id="obligaties" label={t.fields.bonds} bind:value={s.obligaties} unit="%" step={0.1} min={-10}
+        info={t.fields.assetInfo(pct(returns.bond_real), pct(returns.inflation, 0), assetSource)} />
+      <div class="outrow">
+        <div class="lab">
+          <span>{t.fields.portfolioReturn}</span>
+          <Info text={t.fields.portfolioReturnInfo(pct(returnPct / 100), pct(returnPct / 100 - inflation))} />
+        </div>
+        <output for="mix aandelen obligaties">{pct(returnPct / 100)}</output>
+      </div>
+      <NumField id="voorzichtig" label={t.fields.cautious} bind:value={s.voorzichtig} unit="%" step={0.5} max={10} info={t.fields.cautiousInfo} />
+      <NumField id="inflatie" label={t.fields.inflation} bind:value={s.inflatie} unit="%" step={0.1} info={t.fields.inflationInfo} />
+      <label class="check" for="reeel">
+        <input id="reeel" type="checkbox" bind:checked={s.reeel} />
+        {t.fields.real}
+      </label>
+    </details>
+
+    <details>
+      <summary>{t.panel.taxes}</summary>
+      <NumField id="mwb" label={t.fields.gainsRate} bind:value={s.mwb} unit="%" step={1} max={50} info={t.fields.gainsInfo} />
+      <NumField id="vrijstelling" label={t.fields.gainsExemption} bind:value={s.vrijstelling} unit="€" step={1000} />
+      <NumField id="tob" label={t.fields.tob} bind:value={s.tob} unit="%" step={0.01} max={5} info={t.fields.tobInfo} />
+    </details>
+  </form>
+</div>
+
+<style>
+  .calc {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+    gap: 28px;
+    align-items: start;
+  }
+  .calc__main { min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+  /* One column: the assumptions come right after the chart, before the notes. */
+  @media (max-width: 1040px) {
+    .calc { display: flex; flex-direction: column; gap: 24px; }
+    .calc__main { display: contents; }
+    .panel { order: 1; }
+    .below { order: 3; }
+  }
+
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+    gap: 1px;
+    margin: 0;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .tiles > div { background: var(--panel); padding: 20px 24px; }
+  .tiles dt { margin: 0 0 6px; font-family: var(--font-mono); font-size: 12px; color: var(--fg-muted); }
+  .tiles dd {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .tiles dd.accent { color: var(--accent); }
+  .tiles dd.sub {
+    margin-top: 4px;
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--fg-muted);
+  }
+
+  .verdict { margin: 0; font-size: 1.15rem; max-width: 80ch; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 24px;
+    min-width: 0;
+  }
+  .card h2, .panel h2 { margin: 0 0 16px; font-size: 1.15rem; }
+  .unit { margin: 10px 0 0; font-family: var(--font-mono); font-size: 12px; color: var(--fg-muted); }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px 24px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
+  .tabs button {
+    min-height: 44px;
+    padding: 0 2px;
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    color: var(--fg-muted);
+    font: 500 14px var(--font-mono);
+    cursor: pointer;
+  }
+  .tabs button:hover { color: var(--accent-hover); }
+  .tabs button[aria-selected='true'] { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .table-scroll { overflow-x: auto; max-height: 460px; overflow-y: auto; }
+  .table-scroll table { min-width: 620px; }
+  .table-scroll th { position: sticky; top: 0; background: var(--panel); }
+  .table-scroll td, .table-scroll th { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .table-scroll td:first-child, .table-scroll th:first-child { text-align: left; }
+
+  .below { font-size: 0.94rem; color: var(--fg-muted); }
+  .about { border-top: 0; padding: 0; max-width: 80ch; }
+  .about summary { font-weight: 500; color: var(--fg-muted); }
+  .about summary:hover { color: var(--accent-hover); }
+  .disclaimer { margin: 4px 0 0; font-size: 13px; }
+  .checkrow { position: relative; display: flex; align-items: center; gap: 8px; }
+  .selectrow { position: relative; display: flex; flex-direction: column; gap: 8px; }
+  /* A computed value, set where the inputs sit but without a box. */
+  .outrow { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 40px; }
+  .outrow span { font-family: var(--font-mono); font-size: 13px; color: var(--fg-muted); }
+  .outrow output { padding-right: 13px; font: 500 16px var(--font-mono); color: var(--accent); font-variant-numeric: tabular-nums; }
+  .lab { display: flex; align-items: center; gap: 8px; }
+  .lab label { font-family: var(--font-mono); font-size: 13px; color: var(--fg-muted); }
+  select {
+    width: 100%;
+    min-height: 40px;
+    padding: 0 12px;
+    background: var(--bg);
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    color: var(--fg);
+    font: 500 14px var(--font-mono);
+  }
+  select:focus-visible { border-color: var(--accent); }
+  .list { margin: 0; }
+  .list > div {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .list > div:last-child { border-bottom: 0; }
+  .list dt { color: var(--fg-muted); }
+  .list dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .list .total dt, .list .total dd { color: var(--fg); font-weight: 600; }
+  .list dt :global(.info) { margin-left: 4px; }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 24px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .panel__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; }
+  .panel__head h2 { margin: 0; }
+  .panel__actions { display: flex; flex-wrap: wrap; gap: 0 16px; }
+  .link {
+    min-height: 36px;
+    padding: 0;
+    background: none;
+    border: 0;
+    color: var(--accent);
+    font: 13px var(--font-mono);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  .link:hover { color: var(--accent-hover); }
+  details { border-top: 1px solid var(--line); padding: 4px 0 12px; }
+  details > :global(* + *) { margin-top: 12px; }
+  summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: '▸'; color: var(--accent); font-family: var(--font-mono); }
+  details[open] > summary::before { content: '▾'; }
+</style>

@@ -1,0 +1,43 @@
+{
+ "last_verified": {
+  "pijler2": "2026-11-09",
+  "pijler3": "2026-11-02",
+  "meerwaardebelasting": "2026-10-06",
+  "tob": "2026-11-02"
+ },
+ "pijler2": {
+  "eindbelasting": {
+   "wettelijke_pensioenleeftijd_actief": 0.1,
+   "age_62": 0.165,
+   "age_61": 0.18,
+   "age_60": 0.2
+  },
+  "riziv": 0.0355,
+  "solidariteit_max": 0.02
+ },
+ "pensioensparen": {
+  "opties": [
+   {
+    "max_premie_eur": 1050,
+    "vermindering": 0.3
+   },
+   {
+    "max_premie_eur": 1350,
+    "vermindering": 0.25
+   }
+  ],
+  "heffing_op_60": 0.08
+ },
+ "wettelijk_pensioen": {
+  "geboren_voor_66": 1960,
+  "geboren_voor_67": 1964,
+  "leeftijd_tot_2025": 65,
+  "leeftijd_2025": 66,
+  "leeftijd_2030": 67
+ },
+ "meerwaardebelasting": {
+  "tarief": 0.1,
+  "vrijstelling_eur": 10000
+ },
+ "tob_etf": 0.0012
+}

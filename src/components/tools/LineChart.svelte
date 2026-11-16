@@ -1,12 +1,12 @@
 <script lang="ts">
-  // A small line chart in the site's own style: two series, one in the accent
-  // colour and one in the warm colour with dashes, so they differ without
+  // A small line chart in the site's own style: up to three series, each
+  // with its own colour and its own dash pattern, so they differ without
   // colour too. The legend above the plot shows the values of the chosen year
   // (pointer, touch or arrow keys); it starts at the last year.
   interface Series {
     label: string;
     values: number[];
-    tone: 'a' | 'b';
+    tone: 'a' | 'b' | 'c';
   }
   let {
     series,
@@ -31,7 +31,7 @@
   let width = $state(720);
   let hover = $state<number | null>(null);
 
-  const L = 72, R = 16, T = 16, B = 32;
+  const L = 84, R = 16, T = 16, B = 32;
   const n = $derived(years.length);
   const idx = $derived(hover === null || hover >= n ? n - 1 : hover);
   const W = $derived(Math.max(width, 280));
@@ -136,6 +136,7 @@
   .legend strong { color: var(--fg); font-weight: 500; font-variant-numeric: tabular-nums; }
   .swatch { width: 22px; height: 0; border-top: 2px solid var(--accent); flex: none; }
   .swatch--b { border-color: var(--warm); border-top-style: dashed; }
+  .swatch--c { border-color: var(--green); border-top-style: dotted; border-top-width: 3px; }
   svg { display: block; width: 100%; height: auto; touch-action: pan-y; cursor: crosshair; }
   .grid { stroke: var(--line); stroke-width: 1; }
   .zero { stroke: var(--line-strong); stroke-width: 1; }
@@ -144,6 +145,8 @@
   .marker { stroke: var(--fg-muted); stroke-width: 1; stroke-dasharray: 2 4; }
   .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke: var(--accent); }
   .line--b { stroke: var(--warm); stroke-dasharray: 6 4; }
+  .line--c { stroke: var(--green); stroke-dasharray: 2 4; stroke-linecap: round; }
   .dot { fill: var(--accent); stroke: var(--bg); stroke-width: 2; }
   .dot--b { fill: var(--warm); }
+  .dot--c { fill: var(--green); }
 </style>

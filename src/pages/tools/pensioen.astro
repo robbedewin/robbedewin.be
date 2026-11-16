@@ -1,0 +1,14 @@
+---
+import Base from '../../layouts/Base.astro';
+import Pension from '../../components/tools/Pension.svelte';
+import { t } from '../../components/tools/pensioen.nl.ts';
+---
+
+<Base title={t.title} description={t.description} wide lang="nl">
+  <div class="page-head">
+    <p class="prompt">./pensioen --land be</p>
+    <h1>{t.title}</h1>
+    <p class="page-head__summary">{t.summary}</p>
+  </div>
+  <Pension client:load />
+</Base>
