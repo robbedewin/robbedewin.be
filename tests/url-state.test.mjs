@@ -1,7 +1,7 @@
 // The calculators' shareable links.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readQuery, writeQuery } from '../src/lib/url-state.ts';
+import { linkPath, linkQuery, readQuery, writeQuery } from '../src/lib/url-state.ts';
 
 const defaults = { prijs: 400000, rente: 3.4, enige: true, gewest: 'VL', mix: '80', notaris: null };
 const choices = { gewest: ['VL', 'WA', 'BR'], mix: ['100', '80', '60'] };
@@ -19,4 +19,15 @@ test('a written link reads back to the same state', () => {
 test('values that do not fit their key are left out', () => {
   assert.deepEqual(readQuery('?rente=abc&gewest=NL&mix=75&prijs=&onbekend=1', defaults, choices), {});
   assert.deepEqual(readQuery('?enige=1&rente=-1', defaults, choices), { enige: true, rente: -1 });
+});
+
+test('the state is written after the #, so it never reaches the server', () => {
+  assert.equal(linkPath('/tools/pensioen/', 'stop=60'), '/tools/pensioen/#stop=60');
+  assert.equal(linkPath('/tools/pensioen/', ''), '/tools/pensioen/');
+});
+
+test('a fragment wins, and links from before the move still open', () => {
+  assert.equal(linkQuery('#stop=60', '?stop=55'), 'stop=60');
+  assert.equal(linkQuery('', '?stop=55'), '?stop=55');
+  assert.equal(linkQuery('#method', '?stop=55'), '?stop=55');
 });

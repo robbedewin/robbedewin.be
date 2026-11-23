@@ -1,10 +1,25 @@
 // A calculator's assumptions in its address, so a result can be bookmarked
 // or sent on. Only the values that differ from the defaults are written.
 // A default of null means "follow the page's own figure" and is not written.
+//
+// They live after the #, because a browser never sends that part to the
+// server: amounts in a ?query would reach the host's logs on every page load.
 
 export type State = Record<string, unknown>;
 /** Keys that only take one of a few strings (a select, a segmented control). */
 export type Choices = Record<string, readonly string[]>;
+
+/** The state in an address: its #fragment, or the ?query of a link made
+ *  before the state moved to the fragment. A plain #anchor holds no state. */
+export function linkQuery(hash: string, search: string): string {
+  const fragment = hash.replace(/^#/, '');
+  return fragment.includes('=') ? fragment : search;
+}
+
+/** The address for a state; it drops any old ?query. */
+export function linkPath(pathname: string, query: string): string {
+  return query ? `${pathname}#${query}` : pathname;
+}
 
 export function writeQuery(state: State, defaults: State): string {
   const q = new URLSearchParams();

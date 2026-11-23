@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { linkPath, linkQuery } from '../../lib/url-state.ts';
   import {
     CAPACITIES, DREMPELS, GL_MAX, GL_MIN, SHORT_HORIZON_YEARS, adviceRange, capacityVerdict, equityRange,
     toleranceLevel, toleranceScore,
@@ -106,8 +107,8 @@
     if (full && given(costs)) q.set('k', String(costs));
     return q.toString();
   }
-  onMount(() => {
-    const q = new URLSearchParams(location.search);
+  function load() {
+    const q = new URLSearchParams(linkQuery(location.hash, location.search));
     const number = (key: string) => {
       const raw = q.get(key);
       return raw !== null && raw !== '' && Number.isFinite(Number(raw)) ? Number(raw) : null;
@@ -121,16 +122,22 @@
     stability = s === 'hoog' || s === 'matig' || s === 'laag' ? s : null;
     const open = [...tol, ...beh].findIndex((a) => a === null);
     step = open === -1 ? LAST : open;
+  }
+  onMount(() => {
+    load();
     ready = true;
+    // A link pasted into this same tab changes only the fragment: no reload.
+    addEventListener('hashchange', load);
+    return () => removeEventListener('hashchange', load);
   });
   $effect(() => {
     const q = query(false);
-    if (ready) history.replaceState(null, '', q ? `?${q}` : location.pathname);
+    if (ready) history.replaceState(null, '', linkPath(location.pathname, q));
   });
   async function copyLink() {
     try {
       const q = query(true);
-      await navigator.clipboard.writeText(`${location.origin}${location.pathname}${q ? `?${q}` : ''}`);
+      await navigator.clipboard.writeText(`${location.origin}${linkPath(location.pathname, q)}`);
       copied = true;
       setTimeout(() => (copied = false), 2000);
     } catch {

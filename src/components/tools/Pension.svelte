@@ -1,7 +1,7 @@
 <script lang="ts">
   import '../../styles/tools.css';
   import { eur, eurShort, pct } from './format.nl.ts';
-  import { copyText, readQuery, writeQuery } from '../../lib/url-state.ts';
+  import { copyText, linkPath, linkQuery, readQuery, writeQuery } from '../../lib/url-state.ts';
   import { onMount } from 'svelte';
   import { legalPensionAge, leviesPillar2, PENSION_CONSTANTS } from '../../lib/be/pensiontax.ts';
   import { projectRetirement, sustainableSpending, type RetirementInputs } from '../../lib/be/retirement.ts';
@@ -180,12 +180,18 @@
 
   // Shareable link: only the values that differ from the defaults.
   onMount(() => {
-    Object.assign(s, readQuery(location.search, DEFAULTS, { mix: MIXES }));
+    const load = () => {
+      s = { ...DEFAULTS, ...readQuery(linkQuery(location.hash, location.search), DEFAULTS, { mix: MIXES }) };
+    };
+    load();
     ready = true;
+    // A link pasted into this same tab changes only the fragment: no reload.
+    addEventListener('hashchange', load);
+    return () => removeEventListener('hashchange', load);
   });
   $effect(() => {
     const q = writeQuery(s, DEFAULTS);
-    if (ready) history.replaceState(null, '', q ? `?${q}` : location.pathname);
+    if (ready) history.replaceState(null, '', linkPath(location.pathname, q));
   });
   async function copyLink() {
     // No clipboard access: the address bar already holds the link.
