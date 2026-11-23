@@ -1,6 +1,12 @@
 ---
 import '../styles/global.css';
 import Nav from '../components/Nav.astro';
+// The fonts every page draws above the fold. Preloaded so they arrive before
+// the first paint; otherwise the text is drawn in a fallback font first and
+// jumps when the swap happens (layout shift up to 0.17 on desktop).
+import groteskRegular from '@fontsource/space-grotesk/files/space-grotesk-latin-400-normal.woff2?url';
+import groteskSemibold from '@fontsource/space-grotesk/files/space-grotesk-latin-600-normal.woff2?url';
+import monoRegular from '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff2?url';
 
 interface Props {
   title: string;
@@ -25,6 +31,9 @@ const year = new Date().getFullYear();
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     {noindex && <meta name="robots" content="noindex" />}
+    {[groteskRegular, groteskSemibold, monoRegular].map((href) => (
+      <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
+    ))}
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <meta name="theme-color" content="#0b1a2c" />
     <link rel="sitemap" href="/sitemap-index.xml" />
